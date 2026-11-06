@@ -1,0 +1,68 @@
+[project]
+name = "slash-pro-mcp"
+version = "0.1.0"
+description = "MCP server for Slash Pro: read and write tickets, meetings and wiki pages from AI coding agents"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "SIG Inc." }]
+requires-python = ">=3.12"
+keywords = ["mcp", "model-context-protocol", "slash-pro", "agents"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development",
+    "Topic :: Office/Business :: Groupware",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "mcp>=1.23,<2",
+    "httpx>=0.28,<1",
+]
+
+[project.urls]
+Homepage = "https://github.com/sigcrew/slash-pro-mcp"
+Issues = "https://github.com/sigcrew/slash-pro-mcp/issues"
+Changelog = "https://github.com/sigcrew/slash-pro-mcp/blob/main/CHANGELOG.md"
+
+[project.scripts]
+slash-pro-mcp = "slash_pro_mcp.__main__:main"
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/slash_pro_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src", "tests", "README.md", "README.ko.md", "SECURITY.md", "CONTRIBUTING.md", "RELEASING.md", "LICENSE", "CHANGELOG.md"]
+
+[tool.uv]
+# Reproducible builds: pin the build backend `uv build` resolves.
+build-constraint-dependencies = ["hatchling==1.33.0"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2,<9",
+    "pytest-asyncio>=1.1,<2",
+    "ruff>=0.8,<1",
+]
+
+[tool.pytest.ini_options]
+python_files = "test_*.py"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# Long lines left after `ruff format` are tool descriptions (docstrings) shown to the model.
+ignore = ["E501"]
