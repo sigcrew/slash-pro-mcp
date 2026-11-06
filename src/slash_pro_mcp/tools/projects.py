@@ -8,13 +8,13 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from .. import render
-from ..client import EchoClient, path_segment
+from ..client import SlashClient, path_segment
 from ..common import DESTRUCTIVE_IDEMPOTENT, WRITE, tool_errors
 
 PROJECT_KEY = re.compile(r"[A-Z][A-Z0-9]{1,19}")
 
 
-def register(mcp: FastMCP, client: EchoClient) -> None:
+def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=WRITE)
     @tool_errors
     async def create_project(key: str, name: str, description: str | None = None) -> str:

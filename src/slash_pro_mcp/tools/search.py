@@ -7,13 +7,13 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from .. import render
-from ..client import EchoClient, path_segment
+from ..client import SlashClient, path_segment
 from ..common import READ, tool_errors
 
 SEARCH_KINDS = ("ticket", "outcome", "doc", "meeting")
 
 
-def register(mcp: FastMCP, client: EchoClient) -> None:
+def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def search(

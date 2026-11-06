@@ -2,14 +2,14 @@
 
 [English](https://github.com/sigcrew/slash-pro-mcp/blob/main/README.md)
 
-[Slash Pro](https://app.slash.pro)용 [MCP](https://modelcontextprotocol.io) 서버입니다. Claude Code·Codex·Cursor·VS Code Copilot 같은 AI 코딩 에이전트가 워크스페이스의 티켓·회의·PRD·위키를 읽고 쓸 수 있게 해 줍니다.
+[SLASH](https://app.slash.pro)용 [MCP](https://modelcontextprotocol.io) 서버입니다. Claude Code·Codex·Cursor·VS Code Copilot 같은 AI 코딩 에이전트가 워크스페이스의 티켓·회의·PRD·위키를 읽고 쓸 수 있게 해 줍니다.
 
-로컬 **stdio** 클라이언트이고, 도구 하나가 Slash Pro REST 호출 하나(또는 몇 개)를 감쌉니다. 인증은 **본인의 개인 API 토큰**으로 합니다. 권한은 서버가 판단하고, 이 패키지는 권한을 따로 더하지 않습니다. 이 패키지가 더하는 몇 가지 제한은 안전망일 뿐 보안 경계가 아닙니다([보안](#보안) 참고).
+로컬 **stdio** 클라이언트이고, 도구 하나가 SLASH REST 호출 하나(또는 몇 개)를 감쌉니다. 인증은 **본인의 개인 API 토큰**으로 합니다. 권한은 서버가 판단하고, 이 패키지는 권한을 따로 더하지 않습니다. 이 패키지가 더하는 몇 가지 제한은 안전망일 뿐 보안 경계가 아닙니다([보안](#보안) 참고).
 
 ## 준비
 
 - [uv](https://docs.astral.sh/uv/)(`uvx` 포함) 또는 Python 3.12+와 `pipx`
-- Slash Pro 워크스페이스와 개인 API 토큰(`et_…`) — 웹 앱 설정에서 발급
+- SLASH 워크스페이스와 개인 API 토큰(`et_…`) — 웹 앱 설정에서 발급
 - 워크스페이스 id — 웹 앱 주소에 있는 UUID
 
 ## 빠른 시작
@@ -56,8 +56,6 @@ SLASH_PRO_WORKSPACE_ID = "<워크스페이스-uuid>"
 
 > **토큰을 프로젝트 설정 파일(`.cursor/mcp.json`·`.vscode/mcp.json`·`.mcp.json`)에 직접 적지 마세요.** 이런 파일은 커밋됩니다. 토큰 파일, `${env:…}`·`${input:…}` 참조, 사용자 단위 설정을 쓰세요.
 
-**이전 이름(사용 중단 예정)**: `ECHO_API`·`ECHO_WS`·`ECHO_TOKEN`·`ECHO_TOKEN_FILE`·`ECHO_AGENT`·`ECHO_AGENT_MODEL`·`ECHO_REQUESTED_BY`와 `~/.claude/echo-token`·`~/.claude/echo-env` 파일도 계속 읽습니다(env 파일은 워크스페이스 id나 토큰이 아직 없을 때만 읽고, 그룹·다른 사용자가 읽을 수 있으면 경고만 하되 `ECHO_TOKEN`이 들어 있으면 시작을 거부하고, 다른 사용자가 쓸 수 있거나 본인 소유가 아니면 거부합니다). `SLASH_PRO_*` 값이 없을 때만 쓰이고, 쓰이면 stderr에 한 줄 안내가 나옵니다. 다음 메이저 버전에서 제거합니다.
-
 ## 클라이언트별 설정
 
 Codex·Cursor·VS Code·Claude Desktop·Gemini CLI·Windsurf 설정 예시는 [README.md › Client setup](https://github.com/sigcrew/slash-pro-mcp/blob/main/README.md#client-setup)에 있습니다(모두 `uvx slash-pro-mcp==0.1.0`). VS Code는 최상위 키가 `servers`이고, `inputs`에 `"password": true`를 주면 토큰을 파일에 적지 않고 입력받아 안전하게 저장합니다.
@@ -86,7 +84,7 @@ Codex·Cursor·VS Code·Claude Desktop·Gemini CLI·Windsurf 설정 예시는 [R
 - **입력 검증**: 경로에 들어가는 id·티켓 키는 도구 인자로 받은 것이든 서버가 돌려준 것이든 모두 검증하고 퍼센트 인코딩합니다. 그래서 `../`나 `?x=` 같은 경로·쿼리를 끼워 넣을 수 없습니다.
 - **프롬프트 인젝션**: 워크스페이스의 글(티켓·회의·전사·위키·PRD·인계·질문·제목·멤버 이름·서버 경고)이 들어가는 도구 결과(쓰기 확인 문구 포함)와 서버 오류 메시지는 `<untrusted-workspace-content-XXXXXXXX source="…">` 블록으로 감쌉니다. XXXXXXXX는 호출마다 바뀌는 무작위 값이라 내용 안에서 닫는 태그를 위조할 수 없습니다. id·키·상태만 돌려주는 결과(`add_note`·`add_handoff`·`add_evidence`·`update_note`·`update_ticket_status`·`mark_deployed`·삭제 도구)는 감싸지 않되, 서버가 준 id는 UUID나 단순 id 문자열일 때만 그대로 보이고 아니면 감쌉니다. 경로에 쓸 수 없는 서버 id는 값을 보이지 않고 오류로 알립니다. 전송 오류 내용도 감싸고, 서버 오류 메시지는 2,000자·필드 오류 20개까지, 도구 결과는 200,000자까지로 자릅니다. 자세한 내용은 [README.md › Security model](https://github.com/sigcrew/slash-pro-mcp/blob/main/README.md#security-model). 위험을 완전히 없애지는 못하므로, 에이전트가 쓴 내용은 사람이 확인하세요.
 - **워크스페이스 규칙**: 시작할 때 규칙 페이지를 읽어 instructions에 넣되 3초 안에 못 읽으면 규칙 없이 시작합니다(클라이언트 연결을 붙잡지 않음, stderr에 경고). 규칙 페이지는 모든 에이전트가 읽기 때문에, 페이지 제목과 본문을 함께 고정 안내문 뒤의 블록 안에 넣습니다. 안내문은 이 규칙이 티켓·노트 처리 관례일 뿐이며 셸 명령 실행·소프트웨어 설치·자격 증명이나 파일 읽기·전송·다른 호스트 접속은 절대 허용하지 않는다고 못박습니다. 이 서버는 그 페이지에 대한 에이전트 쓰기를 거부합니다: 보호 대상 쓰기(위키 쓰기, 제품 전략 문서, 마크다운 PRD, AI 문서 업데이트 수락·되돌리기·거절) 직전마다 규칙 페이지를 다시 조회해 정규화한 UUID로 비교하므로 시작 뒤에 지정된 페이지도 막히고, 조회에 실패하면 쓰기를 거부합니다. `SLASH_PRO_WORKSPACE_RULES=0`이면 본문만 넣지 않고 보호는 유지합니다.
-- **클라이언트 쪽 제한은 안전망일 뿐 보안 경계가 아닙니다**: 이 클라이언트는 잘 동작하는 에이전트가 실수로 사람의 작업을 망치지 않도록 몇 가지 제한을 둡니다(예: 자기가 만든 노트·근거만 고치거나 지우기, 사람 항목·판정이 있는 체크리스트 항목 유지, canceled 거부). 권한은 Slash Pro API가 토큰 스코프로 판단합니다. 토큰 스코프는 좁게 주고, 믿을 수 없는 내용을 읽는 에이전트에게는 쓰기 스코프를 주지 말고, 믿을 수 없는 에이전트에게 토큰 파일이나 환경 변수에 닿는 셸 권한을 주지 마세요.
+- **클라이언트 쪽 제한은 안전망일 뿐 보안 경계가 아닙니다**: 이 클라이언트는 잘 동작하는 에이전트가 실수로 사람의 작업을 망치지 않도록 몇 가지 제한을 둡니다(예: 자기가 만든 노트·근거만 고치거나 지우기, 사람 항목·판정이 있는 체크리스트 항목 유지, canceled 거부). 권한은 SLASH API가 토큰 스코프로 판단합니다. 토큰 스코프는 좁게 주고, 믿을 수 없는 내용을 읽는 에이전트에게는 쓰기 스코프를 주지 말고, 믿을 수 없는 에이전트에게 토큰 파일이나 환경 변수에 닿는 셸 권한을 주지 마세요.
 - **텔레메트리 없음**: 네트워크 요청은 설정한 API 주소로만 갑니다.
 - **릴리스**: 태그에서 GitHub Actions가 PyPI Trusted Publishing과 빌드 출처 증명으로 배포하고, 태그 커밋이 `main`에 있는지 확인합니다. 관리자는 `pypi` 환경에 필수 리뷰어를 두고 `v*` 태그를 보호하세요.
 

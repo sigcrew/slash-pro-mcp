@@ -2,9 +2,9 @@
 
 import pytest
 
-from slash_pro_mcp.client import EchoClient
+from slash_pro_mcp.client import SlashClient
 from tests.helpers import (
-    FakeEcho,
+    FakeSlash,
     call,
     call_error,
     call_untrusted,
@@ -33,7 +33,7 @@ SESSIONS_PATH = ws_path(f"/meetings/{MEETING_ID}/recording/sessions")
 NO_SESSIONS = json_response(200, {"sessions": []})
 
 
-async def test_get_meeting_combines_meeting_run_and_versions(client: EchoClient, fake: FakeEcho):
+async def test_get_meeting_combines_meeting_run_and_versions(client: SlashClient, fake: FakeSlash):
     fake.on("GET", f"/api/meetings/{MEETING_ID}", json_response(200, MEETING))
     fake.on("GET", SESSIONS_PATH, NO_SESSIONS)
     fake.on(
@@ -80,7 +80,7 @@ async def test_get_meeting_combines_meeting_run_and_versions(client: EchoClient,
     ]
 
 
-async def test_get_meeting_without_transcript_or_runs(client: EchoClient, fake: FakeEcho):
+async def test_get_meeting_without_transcript_or_runs(client: SlashClient, fake: FakeSlash):
     bare = {**MEETING, "transcription": None, "attendees": [], "actual_duration_minutes": None}
     fake.on("GET", f"/api/meetings/{MEETING_ID}", json_response(200, bare))
     fake.on("GET", ws_path(f"/meetings/{MEETING_ID}/analysis/run"), json_response(200, {"run": None}))
@@ -95,7 +95,7 @@ async def test_get_meeting_without_transcript_or_runs(client: EchoClient, fake: 
     assert "- 분석 버전: 없음" in text
 
 
-async def test_get_meeting_degrades_when_versions_route_rejects_api_token(client: EchoClient, fake: FakeEcho):
+async def test_get_meeting_degrades_when_versions_route_rejects_api_token(client: SlashClient, fake: FakeSlash):
     fake.on("GET", f"/api/meetings/{MEETING_ID}", json_response(200, MEETING))
     fake.on("GET", ws_path(f"/meetings/{MEETING_ID}/analysis/run"), json_response(200, {"run": None}))
     fake.on(
@@ -111,7 +111,7 @@ async def test_get_meeting_degrades_when_versions_route_rejects_api_token(client
     assert text.splitlines()[-1] == "- 녹음 세션: 없음"
 
 
-async def test_get_meeting_summarises_last_recording_session(client: EchoClient, fake: FakeEcho):
+async def test_get_meeting_summarises_last_recording_session(client: SlashClient, fake: FakeSlash):
     """마지막 세션 한 줄 — 세션 수 · 마지막 종료 사유 · 시각. 사후 조사 진입점."""
     fake.on("GET", f"/api/meetings/{MEETING_ID}", json_response(200, MEETING))
     fake.on("GET", ws_path(f"/meetings/{MEETING_ID}/analysis/run"), json_response(200, {"run": None}))
@@ -152,7 +152,7 @@ async def test_get_meeting_summarises_last_recording_session(client: EchoClient,
     )
 
 
-async def test_get_meeting_marks_session_without_terminal_event(client: EchoClient, fake: FakeEcho):
+async def test_get_meeting_marks_session_without_terminal_event(client: SlashClient, fake: FakeSlash):
     fake.on("GET", f"/api/meetings/{MEETING_ID}", json_response(200, MEETING))
     fake.on("GET", ws_path(f"/meetings/{MEETING_ID}/analysis/run"), json_response(200, {"run": None}))
     fake.on("GET", ws_path(f"/meetings/{MEETING_ID}/analysis/versions"), json_response(200, []))
@@ -183,18 +183,18 @@ async def test_get_meeting_marks_session_without_terminal_event(client: EchoClie
     )
 
 
-async def test_get_meeting_degrades_when_sessions_route_is_missing_or_forbidden(client: EchoClient, fake: FakeEcho):
+async def test_get_meeting_degrades_when_sessions_route_is_missing_or_forbidden(client: SlashClient, fake: FakeSlash):
     fake.on("GET", f"/api/meetings/{MEETING_ID}", json_response(200, MEETING))
     fake.on("GET", ws_path(f"/meetings/{MEETING_ID}/analysis/run"), json_response(200, {"run": None}))
     fake.on("GET", ws_path(f"/meetings/{MEETING_ID}/analysis/versions"), json_response(200, []))
-    # no fake route for sessions → FakeEcho answers 404 (older server)
+    # no fake route for sessions → FakeSlash answers 404 (older server)
 
     text = await call_untrusted(client, "get_meeting", meeting_id=MEETING_ID)
 
     assert text.splitlines()[-1] == "- 녹음 세션: 조회 불가"
 
 
-async def test_get_meeting_404_is_a_tool_error(client: EchoClient, fake: FakeEcho):
+async def test_get_meeting_404_is_a_tool_error(client: SlashClient, fake: FakeSlash):
     fake.on(
         "GET",
         f"/api/meetings/{MEETING_ID}",
@@ -204,7 +204,7 @@ async def test_get_meeting_404_is_a_tool_error(client: EchoClient, fake: FakeEch
     assert "HTTP 404: Meeting not found" in await call_error(client, "get_meeting", meeting_id=MEETING_ID)
 
 
-async def test_get_minutes_returns_markdown(client: EchoClient, fake: FakeEcho):
+async def test_get_minutes_returns_markdown(client: SlashClient, fake: FakeSlash):
     fake.on(
         "GET",
         ws_path(f"/meetings/{MEETING_ID}/minutes.md"),
@@ -214,7 +214,7 @@ async def test_get_minutes_returns_markdown(client: EchoClient, fake: FakeEcho):
     assert await call_untrusted(client, "get_minutes", meeting_id=MEETING_ID) == "# 회의록\n- 결정 1"
 
 
-async def test_find_transcript_excerpts_posts_title_and_renders_timestamps(client: EchoClient, fake: FakeEcho):
+async def test_find_transcript_excerpts_posts_title_and_renders_timestamps(client: SlashClient, fake: FakeSlash):
     fake.on(
         "POST",
         ws_path(f"/meetings/{MEETING_ID}/transcript/find-excerpts"),
@@ -249,7 +249,7 @@ async def test_find_transcript_excerpts_posts_title_and_renders_timestamps(clien
     assert post.body == {"title": "MCP 서버", "description": "읽기+쓰기"}
 
 
-async def test_find_transcript_excerpts_empty(client: EchoClient, fake: FakeEcho):
+async def test_find_transcript_excerpts_empty(client: SlashClient, fake: FakeSlash):
     fake.on("POST", ws_path(f"/meetings/{MEETING_ID}/transcript/find-excerpts"), json_response(200, []))
 
     assert (
@@ -278,7 +278,7 @@ ROW = {
 }
 
 
-async def test_list_meetings_sends_filters_and_renders_kst_lines(client: EchoClient, fake: FakeEcho):
+async def test_list_meetings_sends_filters_and_renders_kst_lines(client: SlashClient, fake: FakeSlash):
     other = {
         **ROW,
         "id": "m2",
@@ -315,14 +315,14 @@ async def test_list_meetings_sends_filters_and_renders_kst_lines(client: EchoCli
     }
 
 
-async def test_list_meetings_without_filters_and_empty(client: EchoClient, fake: FakeEcho):
+async def test_list_meetings_without_filters_and_empty(client: SlashClient, fake: FakeSlash):
     fake.on("GET", SEARCH_PATH, json_response(200, []))
 
     assert await call_untrusted(client, "list_meetings") == "(회의 없음)"
     assert fake.calls[0].query == {"limit": "20"}
 
 
-async def test_list_meetings_surfaces_bad_date(client: EchoClient, fake: FakeEcho):
+async def test_list_meetings_surfaces_bad_date(client: SlashClient, fake: FakeSlash):
     fake.on(
         "GET",
         SEARCH_PATH,
@@ -335,7 +335,7 @@ async def test_list_meetings_surfaces_bad_date(client: EchoClient, fake: FakeEch
 TODO_PATH = ws_path(f"/meetings/{MEETING_ID}/action-proposals")
 
 
-async def test_add_todo_resolves_assignee_and_posts_due_and_evidence(client: EchoClient, fake: FakeEcho):
+async def test_add_todo_resolves_assignee_and_posts_due_and_evidence(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/assignees"), json_response(200, ASSIGNEES))
     fake.on(
         "POST",
@@ -374,7 +374,7 @@ async def test_add_todo_resolves_assignee_and_posts_due_and_evidence(client: Ech
     }
 
 
-async def test_add_todo_minimal_and_validation(client: EchoClient, fake: FakeEcho):
+async def test_add_todo_minimal_and_validation(client: SlashClient, fake: FakeSlash):
     fake.on("POST", TODO_PATH, json_response(201, {"id": "todo-2", "title": "회고 잡기"}))
 
     text = await call(client, "add_todo", meeting_id=MEETING_ID, title="회고 잡기")
@@ -387,7 +387,7 @@ async def test_add_todo_minimal_and_validation(client: EchoClient, fake: FakeEch
     assert "title must not be empty" in await call_error(client, "add_todo", meeting_id=MEETING_ID, title=" ")
 
 
-async def test_add_todo_unknown_assignee_is_an_error_and_posts_nothing(client: EchoClient, fake: FakeEcho):
+async def test_add_todo_unknown_assignee_is_an_error_and_posts_nothing(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/assignees"), json_response(200, ASSIGNEES))
 
     text = await call_error(client, "add_todo", meeting_id=MEETING_ID, title="x", assignee="민수")
@@ -397,7 +397,7 @@ async def test_add_todo_unknown_assignee_is_an_error_and_posts_nothing(client: E
     assert not fake.calls_to("POST", ".*")
 
 
-async def test_add_todo_partial_name_ambiguity_lists_candidates(client: EchoClient, fake: FakeEcho):
+async def test_add_todo_partial_name_ambiguity_lists_candidates(client: SlashClient, fake: FakeSlash):
     fake.on(
         "GET",
         ws_path("/assignees"),

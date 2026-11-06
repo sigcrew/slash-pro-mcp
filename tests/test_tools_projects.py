@@ -2,8 +2,8 @@
 
 import pytest
 
-from slash_pro_mcp.client import EchoClient
-from tests.helpers import FakeEcho, call_raw, json_response, unfence, ws_path
+from slash_pro_mcp.client import SlashClient
+from tests.helpers import FakeSlash, call_raw, json_response, unfence, ws_path
 
 
 async def ok(client, tool, args):
@@ -21,7 +21,7 @@ async def err(client, tool, args):
 pytestmark = pytest.mark.asyncio
 
 
-async def test_create_project(client: EchoClient, fake: FakeEcho):
+async def test_create_project(client: SlashClient, fake: FakeSlash):
     fake.on("POST", ws_path("/projects"), json_response(201, {"id": "p-1", "key": "DEMO", "name": "Demo"}))
 
     text = await ok(client, "create_project", {"key": "demo", "name": "Demo", "description": "데모 앱"})
@@ -33,13 +33,13 @@ async def test_create_project(client: EchoClient, fake: FakeEcho):
     assert "name must not be empty" in await err(client, "create_project", {"key": "AB", "name": " "})
 
 
-async def test_create_project_403_without_scope(client: EchoClient, fake: FakeEcho):
+async def test_create_project_403_without_scope(client: SlashClient, fake: FakeSlash):
     fake.on("POST", ws_path("/projects"), json_response(403, raw={"detail": "scope_required: projects:write"}))
 
     assert "scope_required: projects:write" in await err(client, "create_project", {"key": "XY", "name": "x"})
 
 
-async def test_update_project(client: EchoClient, fake: FakeEcho):
+async def test_update_project(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, [{"id": "p-1", "key": "DEMO"}]))
     fake.on("PATCH", ws_path("/projects/p-1"), json_response(200, {"key": "DEMO", "name": "Demo 2"}))
 
@@ -50,7 +50,7 @@ async def test_update_project(client: EchoClient, fake: FakeEcho):
     assert "name or description is required" in await err(client, "update_project", {"key": "DEMO"})
 
 
-async def test_create_ticket_with_prd_links_after_create(client: EchoClient, fake: FakeEcho):
+async def test_create_ticket_with_prd_links_after_create(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, [{"id": "p-1", "key": "DEMO"}]))
     fake.on("POST", ws_path("/projects/p-1/tickets"), json_response(201, {"id": "t-1", "number": 1}))
     fake.on(

@@ -10,9 +10,9 @@ from dataclasses import replace
 import httpx
 import pytest
 
-from slash_pro_mcp.client import EchoClient
-from slash_pro_mcp.config import EchoConfig
-from tests.helpers import AGENT, FakeEcho, call, call_error, call_untrusted, json_response, unfence, ws_path
+from slash_pro_mcp.client import SlashClient
+from slash_pro_mcp.config import SlashConfig
+from tests.helpers import AGENT, FakeSlash, call, call_error, call_untrusted, json_response, unfence, ws_path
 
 pytestmark = pytest.mark.asyncio
 
@@ -21,7 +21,7 @@ def handoff(**extra) -> dict:
     return {
         "id": "h-1",
         "ticketId": "t-23",
-        "ticketKey": "ECHO-23",
+        "ticketKey": "ABC-23",
         "ticketTitle": "검증 대상",
         "toAgent": "Codex",
         "requestedRole": "verifier",
@@ -37,7 +37,7 @@ def handoff(**extra) -> dict:
     }
 
 
-async def test_list_handoffs_defaults_to_own_label(client: EchoClient, fake: FakeEcho):
+async def test_list_handoffs_defaults_to_own_label(client: SlashClient, fake: FakeSlash):
     fake.on(
         "GET",
         ws_path("/handoffs"),
@@ -60,14 +60,14 @@ async def test_list_handoffs_defaults_to_own_label(client: EchoClient, fake: Fak
     (get,) = fake.calls
     assert get.query == {"to": AGENT, "limit": "50"}
     assert text == (
-        "- ECHO-23 · claimed · - · agent — 검증 요청: PR #1  "
+        "- ABC-23 · claimed · - · agent — 검증 요청: PR #1  "
         "(id h-2; Claude Code 2026-09-19T01:00:00+00:00; 맡음 Codex · lease 2026-09-19T03:00:00+00:00)\n"
-        "- ECHO-23 · open · verifier · human — 검증 요청: PR #1  "
+        "- ABC-23 · open · verifier · human — 검증 요청: PR #1  "
         "(id h-1; Claude Code 2026-09-19T01:00:00+00:00)"
     )
 
 
-async def test_list_handoffs_forwards_to_and_state(client: EchoClient, fake: FakeEcho):
+async def test_list_handoffs_forwards_to_and_state(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/handoffs"), json_response(200, []))
     assert await call_untrusted(client, "list_handoffs", to="Codex", state="completed, blocked") == "(인계 없음)"
     assert fake.calls[-1].query == {"to": "Codex", "limit": "50", "state": "completed,blocked"}
@@ -76,18 +76,18 @@ async def test_list_handoffs_forwards_to_and_state(client: EchoClient, fake: Fak
     assert "unknown state: bogus" in await call_error(client, "list_handoffs", state="bogus")
 
 
-async def test_list_handoffs_without_agent_label_omits_to(fake: FakeEcho, config: EchoConfig):
-    fake.on("GET", ws_path("/handoffs"), json_response(200, [handoff(blockedBy=[{"key": "ECHO-9"}, {"manual": True}])]))
-    echo = EchoClient(replace(config, agent=None), transport=httpx.MockTransport(fake.handle))
+async def test_list_handoffs_without_agent_label_omits_to(fake: FakeSlash, config: SlashConfig):
+    fake.on("GET", ws_path("/handoffs"), json_response(200, [handoff(blockedBy=[{"key": "ABC-9"}, {"manual": True}])]))
+    api = SlashClient(replace(config, agent=None), transport=httpx.MockTransport(fake.handle))
     try:
-        text = await call_untrusted(echo, "list_handoffs")
+        text = await call_untrusted(api, "list_handoffs")
     finally:
-        await echo.aclose()
+        await api.aclose()
     assert fake.calls[-1].query == {"limit": "50"}  # the server then lists every recipient
-    assert text.endswith("; blocked by ECHO-9, manual (-))")
+    assert text.endswith("; blocked by ABC-9, manual (-))")
 
 
-async def test_claim_heartbeat_complete_block(client: EchoClient, fake: FakeEcho):
+async def test_claim_heartbeat_complete_block(client: SlashClient, fake: FakeSlash):
     claimed = handoff(state="claimed", claimedBy="Codex", leaseExpiresAt="2026-09-19T03:00:00+00:00")
     fake.on("POST", ws_path("/handoffs/h-1/claim"), json_response(200, claimed))
     fake.on("POST", ws_path("/handoffs/h-1/heartbeat"), json_response(200, claimed))
@@ -101,7 +101,7 @@ async def test_claim_heartbeat_complete_block(client: EchoClient, fake: FakeEcho
     )
 
     text = unfence(await call(client, "claim_handoff", handoff_id=" h-1 "), "handoff")
-    assert text == "claim: ECHO-23 인계 h-1 → claimed · 맡음 Codex · lease 2026-09-19T03:00:00+00:00"
+    assert text == "claim: ABC-23 인계 h-1 → claimed · 맡음 Codex · lease 2026-09-19T03:00:00+00:00"
     post = fake.calls[-1]
     assert post.body == {"agent": None}  # the server records the token's label
     assert "if-match" not in post.headers
@@ -111,18 +111,18 @@ async def test_claim_heartbeat_complete_block(client: EchoClient, fake: FakeEcho
     assert fake.calls[-1].body == {"agent": None}
 
     text = unfence(await call(client, "complete_handoff", handoff_id="h-1", note_id="note-9"), "handoff")
-    assert text == "complete: ECHO-23 인계 h-1 → completed · 맡음 Codex"
+    assert text == "complete: ABC-23 인계 h-1 → completed · 맡음 Codex"
     assert fake.calls[-1].body == {"agent": None, "note_id": "note-9"}
     await call(client, "complete_handoff", handoff_id="h-1")
     assert fake.calls[-1].body == {"agent": None, "note_id": None}
 
     text = unfence(await call(client, "block_handoff", handoff_id="h-1", reason="토큰 없음"), "handoff")
-    assert text == "block: ECHO-23 인계 h-1 → blocked · 맡음 Codex"
+    assert text == "block: ABC-23 인계 h-1 → blocked · 맡음 Codex"
     assert fake.calls[-1].body == {"agent": None, "reason": "토큰 없음"}
     assert "reason must not be empty" in await call_error(client, "block_handoff", handoff_id="h-1", reason=" ")
 
 
-async def test_claim_taken_surfaces_holder(client: EchoClient, fake: FakeEcho):
+async def test_claim_taken_surfaces_holder(client: SlashClient, fake: FakeSlash):
     fake.on(
         "POST",
         ws_path("/handoffs/h-1/claim"),
@@ -133,13 +133,13 @@ async def test_claim_taken_surfaces_holder(client: EchoClient, fake: FakeEcho):
     assert len(fake.calls) == 1  # no retry: a claim conflict is final
 
 
-async def test_add_handoff_sends_role_trigger_and_anchor(client: EchoClient, fake: FakeEcho):
-    fake.on("GET", ws_path("/tickets/by-key/ECHO-23"), json_response(200, {"id": "t-23"}, etag='"h1"'))
+async def test_add_handoff_sends_role_trigger_and_anchor(client: SlashClient, fake: FakeSlash):
+    fake.on("GET", ws_path("/tickets/by-key/ABC-23"), json_response(200, {"id": "t-23"}, etag='"h1"'))
     fake.on("POST", ws_path("/tickets/t-23/notes"), json_response(201, {"id": "note-h"}, etag='"h2"'))
     await call(
         client,
         "add_handoff",
-        key="ECHO-23",
+        key="ABC-23",
         goal="검증 요청",
         to="Codex",
         role="verifier",
@@ -151,19 +151,19 @@ async def test_add_handoff_sends_role_trigger_and_anchor(client: EchoClient, fak
     assert post.body["handoff"]["requested_role"] == "verifier"
     assert post.body["handoff"]["trigger"] == "human"
     assert post.body["handoff"]["anchor"] == {"pr_urls": ["https://example.com/pull/1"], "head_shas": ["abc1234"]}
-    assert "unknown role: boss" in await call_error(client, "add_handoff", key="ECHO-23", goal="g", role="boss")
-    assert "unknown trigger: cron" in await call_error(client, "add_handoff", key="ECHO-23", goal="g", trigger="cron")
+    assert "unknown role: boss" in await call_error(client, "add_handoff", key="ABC-23", goal="g", role="boss")
+    assert "unknown trigger: cron" in await call_error(client, "add_handoff", key="ABC-23", goal="g", trigger="cron")
 
 
-async def test_add_handoff_sends_model_and_list_shows_it(client: EchoClient, fake: FakeEcho):
-    fake.on("GET", ws_path("/tickets/by-key/ECHO-23"), json_response(200, {"id": "t-23"}, etag='"h1"'))
+async def test_add_handoff_sends_model_and_list_shows_it(client: SlashClient, fake: FakeSlash):
+    fake.on("GET", ws_path("/tickets/by-key/ABC-23"), json_response(200, {"id": "t-23"}, etag='"h1"'))
     fake.on("POST", ws_path("/tickets/t-23/notes"), json_response(201, {"id": "note-h"}, etag='"h2"'))
-    await call(client, "add_handoff", key="ECHO-23", goal="검증 요청", to="Codex", model=" gpt-5 ")
+    await call(client, "add_handoff", key="ABC-23", goal="검증 요청", to="Codex", model=" gpt-5 ")
     (post,) = fake.calls_to("POST", ".*")
     assert post.body["handoff"]["to_model"] == "gpt-5"
-    await call(client, "add_handoff", key="ECHO-23", goal="g", to="Codex")
+    await call(client, "add_handoff", key="ABC-23", goal="g", to="Codex")
     assert "to_model" not in fake.calls_to("POST", ".*")[-1].body["handoff"]
-    await call(client, "add_handoff", key="ECHO-23", goal="g", to=" ")
+    await call(client, "add_handoff", key="ABC-23", goal="g", to=" ")
     assert fake.calls_to("POST", ".*")[-1].body["handoff"]["to_agent"] is None
 
     fake.on(
@@ -174,7 +174,7 @@ async def test_add_handoff_sends_model_and_list_shows_it(client: EchoClient, fak
             [
                 {
                     "id": "h-9",
-                    "ticketKey": "ECHO-23",
+                    "ticketKey": "ABC-23",
                     "state": "open",
                     "requestedRole": "verifier",
                     "trigger": "human",
@@ -188,5 +188,5 @@ async def test_add_handoff_sends_model_and_list_shows_it(client: EchoClient, fak
         ),
     )
     text = await call_untrusted(client, "list_handoffs", to="Codex")
-    assert text.startswith("- ECHO-23 · open · verifier · human — 검증 요청: PR #1  (id h-9; ")
+    assert text.startswith("- ABC-23 · open · verifier · human — 검증 요청: PR #1  (id h-9; ")
     assert text.rstrip(")").endswith("; 모델 gpt-5")

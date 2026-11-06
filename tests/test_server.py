@@ -7,9 +7,9 @@ import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
 
 from slash_pro_mcp import common
-from slash_pro_mcp.client import EchoClient
+from slash_pro_mcp.client import SlashClient
 from slash_pro_mcp.server import build_server
-from tests.helpers import ROUTE_SCOPES, FakeEcho, call_error, route_template
+from tests.helpers import ROUTE_SCOPES, FakeSlash, call_error, route_template
 
 pytestmark = pytest.mark.asyncio
 
@@ -35,7 +35,7 @@ DESTRUCTIVE = {
 }
 
 
-async def test_tools_are_annotated(client: EchoClient):
+async def test_tools_are_annotated(client: SlashClient):
     tools = await build_server(client).list_tools()
     assert len(tools) == 59
     for tool in tools:
@@ -51,14 +51,14 @@ async def test_tools_are_annotated(client: EchoClient):
     assert by_name["add_agenda_item"].idempotentHint is True
 
 
-async def test_server_info_reports_the_package_version(client: EchoClient):
+async def test_server_info_reports_the_package_version(client: SlashClient):
     async with create_connected_server_and_client_session(build_server(client)) as session:
         result = await session.initialize()
     assert result.serverInfo.name == "slash-pro"
     assert result.serverInfo.version == version("slash-pro-mcp")
 
 
-async def test_each_tool_has_an_overall_deadline(client: EchoClient, fake: FakeEcho, monkeypatch):
+async def test_each_tool_has_an_overall_deadline(client: SlashClient, fake: FakeSlash, monkeypatch):
     async def slow():
         await asyncio.sleep(5)
 

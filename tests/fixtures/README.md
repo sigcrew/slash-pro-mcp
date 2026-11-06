@@ -1,6 +1,6 @@
 # Test fixtures
 
-`route_scopes.json` is a **subset** of the Slash Pro server's API-token scope table
+`route_scopes.json` is a **subset** of the SLASH server's API-token scope table
 (`"METHOD /path/{param}"` → required token scope): only the routes this package's tools call.
 The fake API in `tests/helpers.py` fails a test when a tool requests a route that is missing
 here or has no scope.

@@ -6,9 +6,9 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from slash_pro_mcp.client import EchoClient
+from slash_pro_mcp.client import SlashClient
 from slash_pro_mcp.tools.ticket_extras import merge_checklist
-from tests.helpers import FakeEcho, call, call_error, json_response, unfence, ws_path
+from tests.helpers import FakeSlash, call, call_error, json_response, unfence, ws_path
 
 pytestmark = pytest.mark.asyncio
 
@@ -34,14 +34,14 @@ OUTCOME = {
 TICKET = {"id": "t-12", "number": 12, "status": "todo", "outcomeId": None}
 
 
-async def fenced(client: EchoClient, name: str, source: str, **arguments) -> str:
+async def fenced(client: SlashClient, name: str, source: str, **arguments) -> str:
     return unfence(await call(client, name, **arguments), source)
 
 
 # -- outcomes ------------------------------------------------------------------
 
 
-async def test_list_and_get_outcome_by_key(client: EchoClient, fake: FakeEcho):
+async def test_list_and_get_outcome_by_key(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     fake.on("GET", ws_path("/projects/p/outcomes"), json_response(200, [OUTCOME]))
     assert await fenced(client, "list_outcomes", "outcome list", project_key="core") == (
@@ -54,13 +54,13 @@ async def test_list_and_get_outcome_by_key(client: EchoClient, fake: FakeEcho):
     assert "revision 3" in text and "  - CORE-12 · todo — 온보딩" in text and "주간 활성 +5%" in text
 
 
-async def test_get_outcome_key_that_is_a_ticket_is_an_error(client: EchoClient, fake: FakeEcho):
+async def test_get_outcome_key_that_is_a_ticket_is_an_error(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/keys/CORE-12"), json_response(200, {"kind": "ticket", "id": "t-12"}))
     assert "CORE-12 is not an outcome key" in await call_error(client, "get_outcome", outcome="CORE-12")
     assert "invalid outcome key" in await call_error(client, "get_outcome", outcome="../x")
 
 
-async def test_create_and_update_outcome_send_revision(client: EchoClient, fake: FakeEcho):
+async def test_create_and_update_outcome_send_revision(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     fake.on("POST", ws_path("/projects/p/outcomes"), json_response(201, OUTCOME))
     await call(client, "create_outcome", project_key="CORE", title=" 변화 ", target_date="2026-12-01")
@@ -75,7 +75,7 @@ async def test_create_and_update_outcome_send_revision(client: EchoClient, fake:
     assert "at least one field" in await call_error(client, "update_outcome", outcome=OID)
 
 
-async def test_outcome_evidence_and_membership(client: EchoClient, fake: FakeEcho):
+async def test_outcome_evidence_and_membership(client: SlashClient, fake: FakeSlash):
     fake.on("POST", ws_path(f"/outcomes/{OID}/evidence"), json_response(200, OUTCOME))
     await call(client, "add_outcome_evidence", outcome=OID, body="관찰", meeting_id=MEETING)
     assert fake.calls[-1].body == {"body": "관찰", "sourceMeetingId": MEETING}
@@ -142,7 +142,7 @@ async def test_merge_errors_explain_and_sanitise_ids():
     assert "\x1b" not in str(excinfo.value) and "x" * 9 not in str(excinfo.value)
 
 
-async def test_replace_checklist_rebuilds_on_etag_retry(client: EchoClient, fake: FakeEcho):
+async def test_replace_checklist_rebuilds_on_etag_retry(client: SlashClient, fake: FakeSlash):
     reads = iter(
         [
             json_response(200, {**TICKET, "checklist": STORED[:3]}, etag='"v1"'),
@@ -169,7 +169,7 @@ async def test_replace_checklist_rebuilds_on_etag_retry(client: EchoClient, fake
 # -- evidence, notes, relations ---------------------------------------------------
 
 
-async def test_ticket_evidence_round_trip(client: EchoClient, fake: FakeEcho):
+async def test_ticket_evidence_round_trip(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/tickets/by-key/CORE-12"), json_response(200, TICKET))
     fake.on(
         "GET",
@@ -199,7 +199,7 @@ async def test_ticket_evidence_round_trip(client: EchoClient, fake: FakeEcho):
     assert "invalid evidence_id" in await call_error(client, "delete_evidence", key="CORE-12", evidence_id="../x")
 
 
-async def test_evidence_delete_is_limited_to_this_session(client: EchoClient, fake: FakeEcho):
+async def test_evidence_delete_is_limited_to_this_session(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/tickets/by-key/CORE-12"), json_response(200, TICKET))
     text = await call_error(client, "delete_evidence", key="CORE-12", evidence_id="e9")
     assert "Only evidence this agent added" in text
@@ -210,7 +210,7 @@ NOTE = "00000000-0000-7000-8000-000000000050"
 OWN_ONLY = "Only notes this agent wrote in this session can be edited or deleted — use the web app for others."
 
 
-async def test_notes_written_in_this_session_can_be_edited(client: EchoClient, fake: FakeEcho):
+async def test_notes_written_in_this_session_can_be_edited(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/tickets/by-key/CORE-12"), json_response(200, TICKET, etag='"v1"'))
     fake.on("POST", ws_path("/tickets/t-12/notes"), json_response(201, {"id": NOTE.upper()}))
     await call(client, "add_note", key="CORE-12", body="원래")
@@ -226,7 +226,7 @@ async def test_notes_written_in_this_session_can_be_edited(client: EchoClient, f
     assert OWN_ONLY in await call_error(client, "update_note", key="CORE-12", note_id=NOTE, body="x")
 
 
-async def test_recent_same_label_note_not_from_this_session_is_refused(client: EchoClient, fake: FakeEcho):
+async def test_recent_same_label_note_not_from_this_session_is_refused(client: SlashClient, fake: FakeSlash):
     recent = {
         "id": NOTE,
         "kind": "manual",
@@ -241,7 +241,7 @@ async def test_recent_same_label_note_not_from_this_session_is_refused(client: E
     assert "invalid note_id" in await call_error(client, "delete_note", key="CORE-12", note_id="../x")
 
 
-async def test_delete_relation_finds_the_relation_id(client: EchoClient, fake: FakeEcho):
+async def test_delete_relation_finds_the_relation_id(client: SlashClient, fake: FakeSlash):
     relations = {
         "origins": [{"key": "CORE-3", "id": "t-3", "relationId": "r-1"}],
         "blocking": [{"key": "CORE-3", "id": "t-3", "relationId": "r-2"}],
@@ -258,7 +258,7 @@ async def test_delete_relation_finds_the_relation_id(client: EchoClient, fake: F
     assert "No relation between" in await call_error(client, "delete_relation", key="CORE-12", target_key="CORE-9")
 
 
-async def test_delete_relation_looks_at_the_other_side_when_lists_are_capped(client: EchoClient, fake: FakeEcho):
+async def test_delete_relation_looks_at_the_other_side_when_lists_are_capped(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/tickets/by-key/CORE-12"), json_response(200, {**TICKET, "relations": {"followers": []}}))
     other = {"id": "t-3", "relations": {"origins": [{"key": "CORE-12", "id": "t-12", "relationId": "r-7"}]}}
     fake.on("GET", ws_path("/tickets/by-key/CORE-3"), json_response(200, other))
@@ -271,7 +271,7 @@ async def test_delete_relation_looks_at_the_other_side_when_lists_are_capped(cli
 # -- search, meetings ------------------------------------------------------------
 
 
-async def test_search_forwards_filters(client: EchoClient, fake: FakeEcho):
+async def test_search_forwards_filters(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     fake.on(
         "GET",
@@ -303,7 +303,7 @@ async def test_search_forwards_filters(client: EchoClient, fake: FakeEcho):
     assert "unknown kind" in await call_error(client, "search", query="x", kinds=["user"])
 
 
-async def test_upcoming_and_summary(client: EchoClient, fake: FakeEcho):
+async def test_upcoming_and_summary(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/meetings/upcoming"), json_response(200, []))
     assert await fenced(client, "list_upcoming_meetings", "meeting list", limit=500) == "(회의 없음)"
     assert fake.calls[-1].query == {"limit": "100"}
@@ -344,7 +344,7 @@ UPDATE = {
 }
 
 
-async def test_doc_updates_list_and_accept(client: EchoClient, fake: FakeEcho):
+async def test_doc_updates_list_and_accept(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path(f"/wiki/pages/{PAGE}/doc-updates"), json_response(200, [UPDATE]))
     text = await fenced(client, "list_doc_updates", "doc updates", page_id=PAGE)
     assert text == f"- [proposed] append @ 결정: stdio로 간다 (id {UPD}, page {PAGE}, 회의 스크럼)"
@@ -355,7 +355,7 @@ async def test_doc_updates_list_and_accept(client: EchoClient, fake: FakeEcho):
     assert "exactly one of" in await call_error(client, "list_doc_updates")
 
 
-async def test_doc_update_writes_are_guarded(client: EchoClient, fake: FakeEcho):
+async def test_doc_update_writes_are_guarded(client: SlashClient, fake: FakeSlash):
     fake.rules(RULES)
     for tool, args in (
         ("accept_doc_update", {"update_id": UPD, "page_id": RULES}),
@@ -370,7 +370,7 @@ async def test_doc_update_writes_are_guarded(client: EchoClient, fake: FakeEcho)
     assert fake.calls_to("POST", ".*") == []
 
 
-async def test_reject_checks_the_page_and_refresh_needs_none(client: EchoClient, fake: FakeEcho):
+async def test_reject_checks_the_page_and_refresh_needs_none(client: SlashClient, fake: FakeSlash):
     fake.rules(RULES)
     assert "only be edited by people" in await call_error(client, "reject_doc_update", update_id=UPD, page_id=RULES)
     fake.on("GET", ws_path(f"/wiki/pages/{PAGE}/doc-updates"), json_response(200, [UPDATE]))
@@ -379,7 +379,7 @@ async def test_reject_checks_the_page_and_refresh_needs_none(client: EchoClient,
     assert "invalid update_id" in await call_error(client, "refresh_doc_update", update_id="../x")
 
 
-async def test_accept_all_reports_skipped_rows(client: EchoClient, fake: FakeEcho):
+async def test_accept_all_reports_skipped_rows(client: SlashClient, fake: FakeSlash):
     fake.on(
         "POST",
         ws_path(f"/wiki/pages/{PAGE}/doc-updates/accept-all"),
@@ -390,12 +390,12 @@ async def test_accept_all_reports_skipped_rows(client: EchoClient, fake: FakeEch
     assert text.splitlines()[-1] == "- skipped u-9: duplicate"
 
 
-async def test_page_of_error_mentions_the_200_window(client: EchoClient, fake: FakeEcho):
+async def test_page_of_error_mentions_the_200_window(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path(f"/wiki/pages/{PAGE}/doc-updates"), json_response(200, []))
     assert "latest 200 updates" in await call_error(client, "revert_doc_update", update_id=UPD, page_id=PAGE)
 
 
-async def test_handoff_and_verification_note_bodies_are_not_editable(client: EchoClient, fake: FakeEcho):
+async def test_handoff_and_verification_note_bodies_are_not_editable(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/tickets/by-key/CORE-12"), json_response(200, TICKET, etag='"v1"'))
     fake.on("POST", ws_path("/tickets/t-12/notes"), json_response(201, {"id": NOTE}))
     await call(client, "add_handoff", key="CORE-12", goal="g")
@@ -406,7 +406,7 @@ async def test_handoff_and_verification_note_bodies_are_not_editable(client: Ech
     await call(client, "delete_note", key="CORE-12", note_id=NOTE)  # deleting stays possible
 
 
-async def test_doc_update_revert_refresh_and_by_meeting(client: EchoClient, fake: FakeEcho):
+async def test_doc_update_revert_refresh_and_by_meeting(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path(f"/meetings/{MEETING}/doc-updates"), json_response(200, [UPDATE]))
     assert "[proposed]" in await fenced(client, "list_doc_updates", "doc updates", meeting_id=MEETING)
     fake.on("GET", ws_path(f"/wiki/pages/{PAGE}/doc-updates"), json_response(200, [UPDATE]))

@@ -1,6 +1,6 @@
-"""FastMCP server: one tool per Slash Pro REST call.
+"""FastMCP server: one tool per SLASH REST call.
 
-`build_server(client)` registers the tools as closures over an `EchoClient`
+`build_server(client)` registers the tools as closures over an `SlashClient`
 so tests can inject an httpx `MockTransport`. Tools return markdown; text that
 comes from the workspace is fenced (`render.untrusted`). API failures surface as
 tool errors carrying the server's `message`, `code` and `errors[]`, also fenced.
@@ -13,14 +13,14 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from . import __version__
-from .client import EchoClient
+from .client import SlashClient
 from .instructions import INSTRUCTIONS
 from .tools import meeting_agenda, meetings, outcomes, prds, projects, questions, search, ticket_extras, tickets, wiki
 
 SERVER_NAME = "slash-pro"
 
 
-def build_server(client: EchoClient, instructions: str = INSTRUCTIONS) -> FastMCP:
+def build_server(client: SlashClient, instructions: str = INSTRUCTIONS) -> FastMCP:
     """Create the FastMCP server with every tool group registered.
 
     `instructions` is the fixed text by default; `__main__` passes the

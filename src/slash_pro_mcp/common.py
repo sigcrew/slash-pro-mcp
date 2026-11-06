@@ -12,11 +12,11 @@ from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
 from . import render
-from .client import EchoApiError
+from .client import SlashApiError
 
 # MCP hints (https://modelcontextprotocol.io/specification/server/tools). A write without an
 # explicit destructiveHint=False would be read as destructive.
-# openWorldHint=False: every tool talks only to the configured Slash Pro workspace.
+# openWorldHint=False: every tool talks only to the configured SLASH workspace.
 READ = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
 WRITE = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=False)
 WRITE_IDEMPOTENT = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
@@ -29,7 +29,7 @@ TOOL_DEADLINE_SECONDS = 120  # a tool may make several requests, each with its o
 MAX_KEYS = 50  # ticket keys per mark_deployed call
 MAX_LINKED_KEYS = 20  # follows origins (create_ticket) and ticket_keys (create_prd)
 # Failures of a follow-up step after a create; caught so the result still names what was created.
-FOLLOW_UP_ERRORS = (EchoApiError, httpx.HTTPError, TimeoutError, ValueError)
+FOLLOW_UP_ERRORS = (SlashApiError, httpx.HTTPError, TimeoutError, ValueError)
 FOLLOW_UP_MARGIN_SECONDS = 5
 
 DEFAULT_LIST_STATUSES = ("todo", "in_progress")
@@ -87,17 +87,17 @@ def tool_errors[**P, R](fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[
             if isinstance(result, str) and len(result) > MAX_RESULT_CHARS:
                 result = f"{result[:MAX_RESULT_CHARS]}\n… truncated ({len(result)} chars)"  # type: ignore[assignment]
             return result
-        except EchoApiError as exc:
+        except SlashApiError as exc:
             # The server's message can quote user-written text: fence it like any other content.
-            raise ToolError(f"Slash Pro API error:\n{render.untrusted('api error', str(exc))}") from exc
+            raise ToolError(f"SLASH API error:\n{render.untrusted('api error', str(exc))}") from exc
         except ValueError as exc:
             raise ToolError(str(exc)) from exc
         except TimeoutError as exc:
-            raise ToolError("Slash Pro API request timed out") from exc
+            raise ToolError("SLASH API request timed out") from exc
         except httpx.HTTPError as exc:
             # Transport failures (DNS, TLS, timeout). Never carries request headers.
             detail = render.untrusted("transport error", str(exc)[:300])
-            raise ToolError(f"Slash Pro API unreachable: {type(exc).__name__}\n{detail}") from exc
+            raise ToolError(f"SLASH API unreachable: {type(exc).__name__}\n{detail}") from exc
 
     return wrapper
 

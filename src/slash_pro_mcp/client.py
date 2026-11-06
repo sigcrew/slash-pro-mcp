@@ -1,11 +1,11 @@
-"""Thin async HTTP client for the Slash Pro REST API.
+"""Thin async HTTP client for the SLASH REST API.
 
 Every call carries `Authorization: Bearer <token>`; `X-Requested-By` only when
 an explicit requester is configured (the server derives it from the token owner
 otherwise), and `X-Agent-Model` when an agent model is configured.
 Ticket writes go through `ticket_write`, which fetches the ticket by key,
 sends its `ETag` as `If-Match`, and retries once on a 409 version conflict.
-Non-2xx replies become `EchoApiError` whose text carries the server's `message`
+Non-2xx replies become `SlashApiError` whose text carries the server's `message`
 and `errors[]` verbatim — never request headers.
 
 Safety: TLS verification is always on, redirects are never followed, proxy/CA
@@ -28,7 +28,7 @@ from uuid import UUID
 import httpx
 
 from . import render
-from .config import EchoConfig
+from .config import SlashConfig
 
 DEFAULT_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 REQUEST_DEADLINE_SECONDS = 60
@@ -47,7 +47,7 @@ _SEGMENT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.@:-]{0,255}")
 def path_segment(value: object, name: str | None = None) -> str:
     """Validate one URL path segment and percent-encode it, so a model cannot inject path traversal
     (`../x`) or a query string (`a?b=c`). `name` names a tool argument; without it the value came
-    from the server and is never echoed."""
+    from the server and is never repeated."""
     text = str(value).strip()
     if not _SEGMENT.fullmatch(text):
         if name is None:
@@ -80,7 +80,7 @@ def canonical_id(value: object) -> str:
 
 
 @dataclass(eq=False)
-class EchoResponse:
+class SlashResponse:
     status: int
     data: Any
     text: str
@@ -100,7 +100,7 @@ def _header_warnings(raw: str | None) -> list[str]:
 
 
 @dataclass(eq=False)
-class EchoApiError(Exception):
+class SlashApiError(Exception):
     """A non-2xx reply; `str()` is the message the tool returns to the agent."""
 
     status: int
@@ -123,13 +123,13 @@ class EchoApiError(Exception):
 
 
 @dataclass(eq=False)
-class VersionConflict(EchoApiError):
+class VersionConflict(SlashApiError):
     """409 on a ticket write: the ticket changed elsewhere since we read it."""
 
     etag: str | None = None
 
 
-class NotFound(EchoApiError):
+class NotFound(SlashApiError):
     """A lookup this server does client-side (project key, wiki page) found nothing."""
 
     def __init__(self, message: str) -> None:
@@ -154,7 +154,7 @@ def _error_lines(payload: Any) -> list[str]:
     return lines
 
 
-def parse_error(status: int, text: str, etag: str | None = None) -> EchoApiError:
+def parse_error(status: int, text: str, etag: str | None = None) -> SlashApiError:
     """Build the error an agent sees from a failed response body."""
     try:
         payload = json_lib.loads(text) if text else {}
@@ -178,31 +178,31 @@ def parse_error(status: int, text: str, etag: str | None = None) -> EchoApiError
         message = str(message)[:MAX_ERROR_MESSAGE]
     if status == 409 and message == "version_conflict":
         return VersionConflict(status=status, message=message, errors=errors, etag=etag)
-    return EchoApiError(status=status, message=message, errors=errors, code=code, candidates=candidates)
+    return SlashApiError(status=status, message=message, errors=errors, code=code, candidates=candidates)
 
 
 async def _read_capped(response: httpx.Response) -> bytes:
     encoding = response.headers.get("Content-Encoding", "").strip().lower()
     if encoding not in ("", "identity"):
         # We ask for `identity`; a compressed body could inflate past the cap.
-        raise EchoApiError(status=response.status_code, message=f"compressed response refused ({encoding[:20]})")
+        raise SlashApiError(status=response.status_code, message=f"compressed response refused ({encoding[:20]})")
     declared = response.headers.get("Content-Length", "")
     if declared.isdigit() and int(declared) > MAX_RESPONSE_BYTES:
-        raise EchoApiError(status=response.status_code, message="response too large")
+        raise SlashApiError(status=response.status_code, message="response too large")
     chunks: list[bytes] = []
     total = 0
     async for chunk in response.aiter_bytes():
         total += len(chunk)
         if total > MAX_RESPONSE_BYTES:
-            raise EchoApiError(status=response.status_code, message="response too large")
+            raise SlashApiError(status=response.status_code, message="response too large")
         chunks.append(chunk)
     return b"".join(chunks)
 
 
-class EchoClient:
+class SlashClient:
     def __init__(
         self,
-        config: EchoConfig,
+        config: SlashConfig,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
         timeout: httpx.Timeout = DEFAULT_TIMEOUT,
@@ -251,7 +251,7 @@ class EchoClient:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         workspace: bool = True,
-    ) -> EchoResponse:
+    ) -> SlashResponse:
         """Send one request. `path` is relative to `/workspaces/{ws}` unless
         `workspace=False` (then relative to the API root)."""
         url = f"/workspaces/{self.config.workspace_id}{path}" if workspace else path
@@ -259,7 +259,7 @@ class EchoClient:
             async with self._http.stream(method, url, json=json, params=params, headers=headers or {}) as response:
                 content = await _read_capped(response)
         etag = response.headers.get("ETag")
-        # Defense in depth: never hand our own token back to the model, even if a server echoes it.
+        # Defense in depth: never hand our own token back to the model, even if a server sends it back.
         text = content.decode(response.encoding or "utf-8", errors="replace").replace(self.config.token, "[REDACTED]")
         if not 200 <= response.status_code < 300:
             # 3xx included: redirects are not followed, so a moved API is an error.
@@ -269,7 +269,7 @@ class EchoClient:
         if "json" in content_type and text:
             payload = json_lib.loads(text)
             data = payload.get("data") if isinstance(payload, dict) and "data" in payload else payload
-        return EchoResponse(
+        return SlashResponse(
             status=response.status_code,
             data=data,
             text=text,
@@ -308,7 +308,7 @@ class EchoClient:
                 raise ValueError("workspace rules reply has no page id")  # unknown shape: fail closed
             rules_page = render.wire_field(rules, "page_id") if rules is not None else None
             rules_id = str(UUID(str(rules_page))) if rules_page else None
-        except (EchoApiError, httpx.HTTPError, TimeoutError, ValueError, RecursionError) as exc:
+        except (SlashApiError, httpx.HTTPError, TimeoutError, ValueError, RecursionError) as exc:
             raise ValueError(
                 f"Wiki write refused: could not look up the workspace rules page ({type(exc).__name__}). Try again."
             ) from exc
@@ -328,7 +328,7 @@ class EchoClient:
                 return project
         raise NotFound(f"Project not found: {project_key}")
 
-    async def get_ticket_by_key(self, key: str, *, include_notes: bool = False) -> EchoResponse:
+    async def get_ticket_by_key(self, key: str, *, include_notes: bool = False) -> SlashResponse:
         params = {"include": "notes"} if include_notes else None
         key = path_segment(key.upper(), "ticket key")
         return await self.request("GET", f"/tickets/by-key/{key}", params=params)
@@ -337,7 +337,7 @@ class EchoClient:
 
     async def ticket_write(
         self, key: str, method: str, subpath: str, body: dict | None | Callable[[dict], dict]
-    ) -> EchoResponse:
+    ) -> SlashResponse:
         """GET the ticket → `If-Match: <ETag>` → write; on 409 re-read and retry once.
         `body` may be a function of the freshly read ticket, so a retry rebuilds it."""
         current = await self.get_ticket_by_key(key)

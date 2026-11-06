@@ -1,6 +1,6 @@
-"""Slash Pro MCP server — a local stdio adapter over the Slash Pro REST API.
+"""SLASH MCP server — a local stdio adapter over the SLASH REST API.
 
-This package talks to Slash Pro only through HTTP (httpx), only to the configured API URL.
+This package talks to SLASH only through HTTP (httpx), only to the configured API URL.
 """
 
 from importlib.metadata import PackageNotFoundError, version

@@ -2,12 +2,12 @@
 
 import pytest
 
-from slash_pro_mcp.client import EchoClient
-from tests.helpers import FakeEcho, call, call_error, call_untrusted, json_response, unfence, ws_path
+from slash_pro_mcp.client import SlashClient
+from tests.helpers import FakeSlash, call, call_error, call_untrusted, json_response, unfence, ws_path
 
 pytestmark = pytest.mark.asyncio
 
-PROJECTS = [{"id": "p-echo", "key": "ECHO"}]
+PROJECTS = [{"id": "p-demo", "key": "ABC"}]
 PAGES = [
     {
         "id": "root-a",
@@ -42,11 +42,11 @@ PAGES = [
 ]
 
 
-async def test_wiki_tree_resolves_project_and_indents_children(client: EchoClient, fake: FakeEcho):
+async def test_wiki_tree_resolves_project_and_indents_children(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
-    fake.on("GET", ws_path("/projects/p-echo/wiki/tree"), json_response(200, PAGES))
+    fake.on("GET", ws_path("/projects/p-demo/wiki/tree"), json_response(200, PAGES))
 
-    text = await call_untrusted(client, "wiki_tree", project_key="echo")
+    text = await call_untrusted(client, "wiki_tree", project_key="abc")
 
     assert text.splitlines() == [
         "- 회의록 (minutes) `root-b`",
@@ -55,13 +55,13 @@ async def test_wiki_tree_resolves_project_and_indents_children(client: EchoClien
     ]
 
 
-async def test_wiki_tree_unknown_project(client: EchoClient, fake: FakeEcho):
+async def test_wiki_tree_unknown_project(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
 
     assert "Project not found: NOPE" in await call_error(client, "wiki_tree", project_key="NOPE")
 
 
-async def test_get_wiki_page_renders_plain_text(client: EchoClient, fake: FakeEcho):
+async def test_get_wiki_page_renders_plain_text(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/wiki/pages/root-b"), json_response(200, PAGES[2]))
 
     text = await call_untrusted(client, "get_wiki_page", page_id="root-b")
@@ -71,7 +71,7 @@ async def test_get_wiki_page_renders_plain_text(client: EchoClient, fake: FakeEc
     )
 
 
-async def test_get_wiki_page_empty_body(client: EchoClient, fake: FakeEcho):
+async def test_get_wiki_page_empty_body(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/wiki/pages/00000000-0000-7000-8000-000000000031"), json_response(200, PAGES[1]))
 
     assert (await call_untrusted(client, "get_wiki_page", page_id="00000000-0000-7000-8000-000000000031")).endswith(
@@ -79,15 +79,15 @@ async def test_get_wiki_page_empty_body(client: EchoClient, fake: FakeEcho):
     )
 
 
-async def test_search_wiki_across_project_matches_title_and_body(client: EchoClient, fake: FakeEcho):
+async def test_search_wiki_across_project_matches_title_and_body(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     # the tree with `q` returns only the matching pages, without bodies
-    fake.on("GET", ws_path("/projects/p-echo/wiki/tree"), json_response(200, [{"id": p["id"]} for p in PAGES]))
+    fake.on("GET", ws_path("/projects/p-demo/wiki/tree"), json_response(200, [{"id": p["id"]} for p in PAGES]))
     for page in PAGES:
         fake.on("GET", ws_path(f"/wiki/pages/{page['id']}"), json_response(200, page))
 
-    text = await call_untrusted(client, "search_wiki", text="mcp", project_key="ECHO")
-    (tree,) = fake.calls_to("GET", ws_path("/projects/p-echo/wiki/tree"))
+    text = await call_untrusted(client, "search_wiki", text="mcp", project_key="ABC")
+    (tree,) = fake.calls_to("GET", ws_path("/projects/p-demo/wiki/tree"))
     assert tree.query == {"q": "mcp"}
     assert len(fake.calls_to("GET", ws_path("/wiki/pages/.*"))) == 3
 
@@ -96,16 +96,16 @@ async def test_search_wiki_across_project_matches_title_and_body(client: EchoCli
     )
 
 
-async def test_search_wiki_reads_at_most_20_pages(client: EchoClient, fake: FakeEcho):
+async def test_search_wiki_reads_at_most_20_pages(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
-    fake.on("GET", ws_path("/projects/p-echo/wiki/tree"), json_response(200, [{"id": f"p{i}"} for i in range(23)]))
+    fake.on("GET", ws_path("/projects/p-demo/wiki/tree"), json_response(200, [{"id": f"p{i}"} for i in range(23)]))
     fake.on("GET", ws_path("/wiki/pages/p[0-9]+"), json_response(200, {**PAGES[2], "id": "p"}))
-    text = await call_untrusted(client, "search_wiki", text="mcp", project_key="ECHO")
+    text = await call_untrusted(client, "search_wiki", text="mcp", project_key="ABC")
     assert len(fake.calls_to("GET", ws_path("/wiki/pages/.*"))) == 20
     assert text.endswith("… 3 more matching pages not shown; narrow the text")
 
 
-async def test_search_wiki_within_one_page_and_no_match(client: EchoClient, fake: FakeEcho):
+async def test_search_wiki_within_one_page_and_no_match(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/wiki/pages/root-a"), json_response(200, PAGES[0]))
 
     assert (
@@ -116,12 +116,12 @@ async def test_search_wiki_within_one_page_and_no_match(client: EchoClient, fake
     assert not fake.calls_to("GET", ws_path("/projects"))
 
 
-async def test_search_wiki_requires_a_scope(client: EchoClient, fake: FakeEcho):
+async def test_search_wiki_requires_a_scope(client: SlashClient, fake: FakeSlash):
     assert "project_key or page_id is required" in await call_error(client, "search_wiki", text="x")
     assert "text must not be empty" in await call_error(client, "search_wiki", text="  ", page_id="p")
 
 
-async def test_write_wiki_page_appends_markdown_with_source(client: EchoClient, fake: FakeEcho):
+async def test_write_wiki_page_appends_markdown_with_source(client: SlashClient, fake: FakeSlash):
     fake.on(
         "PUT",
         ws_path("/wiki/pages/00000000-0000-7000-8000-000000000031/content"),
@@ -133,7 +133,7 @@ async def test_write_wiki_page_appends_markdown_with_source(client: EchoClient, 
         "write_wiki_page",
         page_id="00000000-0000-7000-8000-000000000031",
         markdown="## 결론\n- stdio",
-        source="ECHO-23 구현",
+        source="ABC-23 구현",
     )
 
     assert text == "Wiki append: MCP 서버 `00000000-0000-7000-8000-000000000031`"
@@ -142,13 +142,13 @@ async def test_write_wiki_page_appends_markdown_with_source(client: EchoClient, 
         "format": "markdown",
         "content": "## 결론\n- stdio",
         "mode": "append",
-        "source": "ECHO-23 구현",
+        "source": "ABC-23 구현",
     }
     assert "x-requested-by" not in put.headers
     assert "if-match" not in put.headers
 
 
-async def test_write_wiki_page_replace_and_validation(client: EchoClient, fake: FakeEcho):
+async def test_write_wiki_page_replace_and_validation(client: SlashClient, fake: FakeSlash):
     fake.on("PUT", ws_path("/wiki/pages/00000000-0000-7000-8000-000000000031/content"), json_response(200, PAGES[1]))
 
     assert await call_untrusted(
@@ -163,7 +163,7 @@ async def test_write_wiki_page_replace_and_validation(client: EchoClient, fake: 
     )
 
 
-async def test_write_wiki_page_error_passes_through(client: EchoClient, fake: FakeEcho):
+async def test_write_wiki_page_error_passes_through(client: SlashClient, fake: FakeSlash):
     fake.on(
         "PUT",
         ws_path("/wiki/pages/00000000-0000-7000-8000-000000000031/content"),
@@ -178,7 +178,7 @@ async def test_write_wiki_page_error_passes_through(client: EchoClient, fake: Fa
 # -- create_wiki_page --------------------------------------------------------
 
 
-async def test_get_wiki_page_markdown_flag(client: EchoClient, fake: FakeEcho):
+async def test_get_wiki_page_markdown_flag(client: SlashClient, fake: FakeSlash):
     from tests.helpers import text_response
 
     fake.on("GET", ws_path("/wiki/pages/p1"), text_response(200, "## 전략\n\n- [ ] 할 일"))
@@ -186,12 +186,12 @@ async def test_get_wiki_page_markdown_flag(client: EchoClient, fake: FakeEcho):
     assert fake.calls[-1].query == {"format": "markdown"}
 
 
-async def test_create_wiki_page_under_section_root(client: EchoClient, fake: FakeEcho):
+async def test_create_wiki_page_under_section_root(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
-    fake.on("POST", ws_path("/projects/p-echo/wiki/ensure-roots"), json_response(200, None))
+    fake.on("POST", ws_path("/projects/p-demo/wiki/ensure-roots"), json_response(200, None))
     fake.on(
         "GET",
-        ws_path("/projects/p-echo/wiki/tree"),
+        ws_path("/projects/p-demo/wiki/tree"),
         json_response(
             200,
             [
@@ -200,27 +200,25 @@ async def test_create_wiki_page_under_section_root(client: EchoClient, fake: Fak
             ],
         ),
     )
-    fake.on("POST", ws_path("/projects/p-echo/wiki/pages"), json_response(201, {"id": "pg-1", "title": "스펙"}))
+    fake.on("POST", ws_path("/projects/p-demo/wiki/pages"), json_response(201, {"id": "pg-1", "title": "스펙"}))
 
     md = "## 표\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n- [ ] 할 일"
-    text = await call(
-        client, "create_wiki_page", project_key="echo", section="feature-specs", title="스펙", markdown=md
-    )
+    text = await call(client, "create_wiki_page", project_key="abc", section="feature-specs", title="스펙", markdown=md)
 
     assert unfence(text, "wiki write") == "Wiki page created: 스펙 `pg-1` (feature-specs)"
     post = fake.calls[-1]
     assert post.body == {"title": "스펙", "parentId": "r-spec", "format": "markdown", "content": md}
     assert "section" in await call_error(
-        client, "create_wiki_page", project_key="echo", section="nope", title="x", markdown="y"
+        client, "create_wiki_page", project_key="abc", section="nope", title="x", markdown="y"
     )
 
 
-async def test_create_wiki_page_product_uses_strategy_doc_and_appends(client: EchoClient, fake: FakeEcho):
+async def test_create_wiki_page_product_uses_strategy_doc_and_appends(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     fake.on(
         "POST",
-        ws_path("/projects/p-echo/wiki/ensure-one-pager"),
-        json_response(200, {"id": "00000000-0000-7000-8000-000000000032", "title": "ECHO 제품 전략"}),
+        ws_path("/projects/p-demo/wiki/ensure-one-pager"),
+        json_response(200, {"id": "00000000-0000-7000-8000-000000000032", "title": "ABC 제품 전략"}),
     )
     fake.on(
         "PUT",
@@ -229,21 +227,21 @@ async def test_create_wiki_page_product_uses_strategy_doc_and_appends(client: Ec
     )
 
     text = await call(
-        client, "create_wiki_page", project_key="ECHO", section="product", title="무시됨", markdown="## 가설"
+        client, "create_wiki_page", project_key="ABC", section="product", title="무시됨", markdown="## 가설"
     )
 
     assert unfence(text, "wiki write") == (
-        "Product strategy page written: ECHO 제품 전략 `00000000-0000-7000-8000-000000000032`"
+        "Product strategy page written: ABC 제품 전략 `00000000-0000-7000-8000-000000000032`"
     )
     assert fake.calls[-1].body == {"format": "markdown", "content": "## 가설", "mode": "replace"}
 
 
-async def test_create_wiki_page_product_falls_back_to_append_when_human_wrote(client: EchoClient, fake: FakeEcho):
+async def test_create_wiki_page_product_falls_back_to_append_when_human_wrote(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     fake.on(
         "POST",
-        ws_path("/projects/p-echo/wiki/ensure-one-pager"),
-        json_response(200, {"id": "00000000-0000-7000-8000-000000000032", "title": "ECHO 제품 전략"}),
+        ws_path("/projects/p-demo/wiki/ensure-one-pager"),
+        json_response(200, {"id": "00000000-0000-7000-8000-000000000032", "title": "ABC 제품 전략"}),
     )
     puts = []
 
@@ -258,24 +256,24 @@ async def test_create_wiki_page_product_falls_back_to_append_when_human_wrote(cl
 
     fake.on("PUT", ws_path("/wiki/pages/00000000-0000-7000-8000-000000000032/content"), handler)
 
-    text = await call(client, "create_wiki_page", project_key="ECHO", section="product", title="x", markdown="## 가설")
+    text = await call(client, "create_wiki_page", project_key="ABC", section="product", title="x", markdown="## 가설")
 
     assert puts == ["replace", "append"]
     assert unfence(text, "wiki write").startswith("Product strategy page written")
 
 
-async def test_create_wiki_page_product_does_not_append_on_other_conflicts(client: EchoClient, fake: FakeEcho):
+async def test_create_wiki_page_product_does_not_append_on_other_conflicts(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     fake.on(
         "POST",
-        ws_path("/projects/p-echo/wiki/ensure-one-pager"),
-        json_response(200, {"id": "00000000-0000-7000-8000-000000000032", "title": "ECHO 제품 전략"}),
+        ws_path("/projects/p-demo/wiki/ensure-one-pager"),
+        json_response(200, {"id": "00000000-0000-7000-8000-000000000032", "title": "ABC 제품 전략"}),
     )
     fake.on(
         "PUT",
         ws_path("/wiki/pages/00000000-0000-7000-8000-000000000032/content"),
         json_response(409, raw={"message": "busy", "code": "document_busy"}),
     )
-    text = await call_error(client, "create_wiki_page", project_key="ECHO", section="product", title="x", markdown="y")
+    text = await call_error(client, "create_wiki_page", project_key="ABC", section="product", title="x", markdown="y")
     assert "code: document_busy" in text
     assert len(fake.calls_to("PUT", ".*")) == 1

@@ -37,14 +37,5 @@ All notable changes to this project are documented here. The format follows
   - untrusted-content fencing (per-call random tag) for user-written content and server error messages
   - workspace rules (title and body) fenced behind a constant limiting preamble and read at startup within 3 s so the handshake is never held up; agent writes to the rules page refused by canonical UUID, looked up again before every guarded write and failing closed; `SLASH_PRO_WORKSPACE_RULES=0` keeps the body out but the page protected
   - loopback API hosts count as custom hosts (opt-in, literal token only)
-  - the deprecated env file is read only when something required is missing, and refused when writable by others or not owned by the user
-  - write confirmations that echo workspace text are fenced; a 120 s overall deadline per tool call; `https` only for outcome evidence URLs
+  - write confirmations that include workspace text are fenced; a 120 s overall deadline per tool call; `https` only for outcome evidence URLs
   - client-side guards (own notes/evidence, checklist merge, no `canceled`) documented as a safety net, not a security boundary
-
-### Changed (for setups from before the public release)
-- Only `echo-api.slash.pro` is accepted without opt-in; other `*.slash.pro` hosts and loopback (`localhost`, `127.0.0.1`, `[::1]`) are custom hosts. Development setups need `SLASH_PRO_ALLOW_CUSTOM_API=<exact host>` (the old `=1` is refused) and a literal `SLASH_PRO_TOKEN`; token files are never read for them.
-- `SLASH_PRO_AGENT` (or `ECHO_AGENT`) has no default; without it `list_handoffs` lists every recipient.
-- `create_prd` section arguments follow the server's current skeleton (`problem`, `success`, `scope`, `approach`, `risks`, `out_of_scope`, `verification`, `open_questions`).
-
-### Deprecated
-- `ECHO_API`, `ECHO_WS`, `ECHO_TOKEN`, `ECHO_TOKEN_FILE`, `ECHO_AGENT`, `ECHO_AGENT_MODEL`, `ECHO_REQUESTED_BY` and the `~/.claude/echo-token` / `~/.claude/echo-env` files, kept as fallbacks: they fill only settings the `SLASH_PRO_*` variables leave unset, print a deprecation notice to stderr, and the env file is read only when the workspace id or a token source is missing (refused when writable by others or not owned by you, or when group/world-readable and holding `ECHO_TOKEN`). They will be removed in a future major version.

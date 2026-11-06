@@ -1,4 +1,4 @@
-"""Fake Echo REST API (httpx MockTransport) and tool-call helpers for the MCP tests."""
+"""Fake REST API (httpx MockTransport) and tool-call helpers for the MCP tests."""
 
 from __future__ import annotations
 
@@ -12,10 +12,10 @@ from typing import Any
 import httpx
 from mcp.shared.memory import create_connected_server_and_client_session
 
-from slash_pro_mcp.client import EchoClient
+from slash_pro_mcp.client import SlashClient
 from slash_pro_mcp.server import build_server
 
-API = "https://echo.test/api"
+API = "https://api.test/api"
 API_ROOT_PATH = "/api"
 WS = "00000000-0000-7000-8000-000000000010"
 TOKEN = "et_test_token_value"
@@ -73,7 +73,7 @@ class Call:
 
 
 @dataclass
-class FakeEcho:
+class FakeSlash:
     """Route table keyed by (method, path-regex). Records every call."""
 
     routes: list[tuple[str, re.Pattern[str], Handler]] = field(default_factory=list)
@@ -137,7 +137,7 @@ def ws_path(suffix: str) -> str:
     return f"/api/workspaces/{WS}{suffix}"
 
 
-async def call_raw(client: EchoClient, name: str, arguments: dict[str, Any]) -> tuple[bool, str]:
+async def call_raw(client: SlashClient, name: str, arguments: dict[str, Any]) -> tuple[bool, str]:
     """Run one tool over an in-memory MCP session; returns (isError, text)."""
     server = build_server(client)
     async with create_connected_server_and_client_session(server) as session:
@@ -146,14 +146,14 @@ async def call_raw(client: EchoClient, name: str, arguments: dict[str, Any]) -> 
     return bool(result.isError), text
 
 
-async def call(client: EchoClient, name: str, **arguments: Any) -> str:
+async def call(client: SlashClient, name: str, **arguments: Any) -> str:
     """Call a tool and return its text; fails the test on isError."""
     is_error, text = await call_raw(client, name, arguments)
     assert not is_error, f"tool {name} failed: {text}"
     return text
 
 
-async def call_error(client: EchoClient, name: str, **arguments: Any) -> str:
+async def call_error(client: SlashClient, name: str, **arguments: Any) -> str:
     """Call a tool expecting isError; returns the error text."""
     is_error, text = await call_raw(client, name, arguments)
     assert is_error, f"tool {name} unexpectedly succeeded: {text}"
@@ -193,7 +193,7 @@ def unfence(text: str, source: str) -> str:
     return match[3]
 
 
-async def call_untrusted(client: EchoClient, name: str, **arguments: Any) -> str:
+async def call_untrusted(client: SlashClient, name: str, **arguments: Any) -> str:
     """Call a read tool whose output is fenced as untrusted workspace content; check the
     fence and return the content inside it."""
     return unfence(await call(client, name, **arguments), UNTRUSTED_SOURCES[name])

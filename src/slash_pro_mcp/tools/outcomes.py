@@ -12,13 +12,13 @@ from uuid import UUID
 from mcp.server.fastmcp import FastMCP
 
 from .. import render
-from ..client import EchoClient, path_segment
+from ..client import SlashClient, path_segment
 from ..common import DESTRUCTIVE_IDEMPOTENT, READ, WRITE, WRITE_IDEMPOTENT, check_due_date, tool_errors
 
 CREATE_STAGES = ("draft", "executing", "paused")
 
 
-async def resolve_outcome(client: EchoClient, ref: str) -> str:
+async def resolve_outcome(client: SlashClient, ref: str) -> str:
     """Outcome id from a UUID or an outcome key like `CORE-45` (tickets and outcomes share numbers)."""
     raw = ref.strip()
     try:
@@ -31,7 +31,7 @@ async def resolve_outcome(client: EchoClient, ref: str) -> str:
     return path_segment(found["id"])
 
 
-async def fetch_outcome(client: EchoClient, ref: str) -> dict:
+async def fetch_outcome(client: SlashClient, ref: str) -> dict:
     return await client.get_data(f"/outcomes/{await resolve_outcome(client, ref)}") or {}
 
 
@@ -42,7 +42,7 @@ def _dates(body: dict[str, Any], start_date: str | None, target_date: str | None
         body["targetDate"] = check_due_date(target_date)
 
 
-def register(mcp: FastMCP, client: EchoClient) -> None:
+def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def list_outcomes(project_key: str) -> str:

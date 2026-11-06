@@ -1,4 +1,4 @@
-"""`slash-pro-mcp` / `python -m slash_pro_mcp` — run the Slash Pro MCP server over stdio."""
+"""`slash-pro-mcp` / `python -m slash_pro_mcp` — run the SLASH MCP server over stdio."""
 
 from __future__ import annotations
 
@@ -7,15 +7,15 @@ import logging
 import sys
 
 from . import __version__
-from .client import EchoClient
-from .config import ConfigError, EchoConfig, load_config
+from .client import SlashClient
+from .config import ConfigError, SlashConfig, load_config
 from .instructions import INSTRUCTIONS, load_instructions
 from .server import build_server
 
 USAGE = """\
 usage: slash-pro-mcp [--help | --version]
 
-Runs the Slash Pro MCP server over stdio. Configure it with environment variables:
+Runs the SLASH MCP server over stdio. Configure it with environment variables:
   SLASH_PRO_WORKSPACE_ID  workspace UUID (required)
   SLASH_PRO_TOKEN         personal API token, or
   SLASH_PRO_TOKEN_FILE    path to a chmod 600 file holding it (default ~/.config/slash-pro/token)
@@ -33,10 +33,10 @@ See https://github.com/sigcrew/slash-pro-mcp#configuration
 STARTUP_RULES_TIMEOUT_SECONDS = 3
 
 
-async def _startup_instructions(config: EchoConfig) -> str:
+async def _startup_instructions(config: SlashConfig) -> str:
     """Read the workspace rules with a throwaway client (the server's own client lives on
     FastMCP's event loop, not this one), within `STARTUP_RULES_TIMEOUT_SECONDS`."""
-    client = EchoClient(config)
+    client = SlashClient(config)
     try:
         async with asyncio.timeout(STARTUP_RULES_TIMEOUT_SECONDS):
             return await load_instructions(client)
@@ -71,7 +71,7 @@ def main() -> int:
     for name in ("httpx", "httpcore", "mcp"):
         logging.getLogger(name).setLevel(logging.WARNING)
     instructions = asyncio.run(_startup_instructions(config))
-    server = build_server(EchoClient(config), instructions=instructions)
+    server = build_server(SlashClient(config), instructions=instructions)
     server.run(transport="stdio")
     return 0
 

@@ -8,7 +8,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from .. import render
-from ..client import EchoClient, canonical_id, path_segment, shown_id
+from ..client import SlashClient, canonical_id, path_segment, shown_id
 from ..common import DESTRUCTIVE, DESTRUCTIVE_IDEMPOTENT, READ, RELATION_KINDS, WRITE, check_choice, tool_errors
 
 # Fields a client may send back for a stored row (checked_by/at are server stamps).
@@ -85,7 +85,7 @@ def merge_checklist(stored_rows: list[dict], items: list[dict]) -> list[dict]:
     return merged
 
 
-def register(mcp: FastMCP, client: EchoClient) -> None:
+def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=DESTRUCTIVE_IDEMPOTENT)
     @tool_errors
     async def replace_checklist(key: str, items: list[dict[str, Any]]) -> str:

@@ -1,7 +1,7 @@
 [project]
 name = "slash-pro-mcp"
 version = "0.1.0"
-description = "MCP server for Slash Pro: read and write tickets, meetings and wiki pages from AI coding agents"
+description = "MCP server for SLASH: read and write tickets, meetings and wiki pages from AI coding agents"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

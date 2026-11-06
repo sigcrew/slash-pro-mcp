@@ -9,11 +9,11 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from .. import render
-from ..client import EchoApiError, EchoClient, path_segment
+from ..client import SlashApiError, SlashClient, path_segment
 from ..common import READ, WRITE, check_due_date, tool_errors
 
 
-def register(mcp: FastMCP, client: EchoClient) -> None:
+def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def get_meeting(meeting_id: str) -> str:
@@ -25,7 +25,7 @@ def register(mcp: FastMCP, client: EchoClient) -> None:
         run = (run_envelope or {}).get("run") if isinstance(run_envelope, dict) else None
         try:
             versions = await client.get_data(f"/meetings/{meeting_id}/analysis/versions", params={"limit": 1}) or []
-        except EchoApiError as exc:
+        except SlashApiError as exc:
             # Older servers gave API tokens 403 here while the meeting itself was readable:
             # degrade instead of failing.
             if exc.status != 403:
@@ -34,7 +34,7 @@ def register(mcp: FastMCP, client: EchoClient) -> None:
         try:
             envelope = await client.get_data(f"/meetings/{meeting_id}/recording/sessions")
             sessions = list((envelope or {}).get("sessions") or []) if isinstance(envelope, dict) else []
-        except EchoApiError as exc:
+        except SlashApiError as exc:
             # Older server (404) or a token without the scope (403): the summary
             # still stands, only the session line degrades.
             if exc.status not in (403, 404):

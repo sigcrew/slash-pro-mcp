@@ -8,7 +8,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from .. import render
-from ..client import EchoClient, path_segment
+from ..client import SlashClient, path_segment
 from ..common import (
     DESTRUCTIVE_IDEMPOTENT,
     FOLLOW_UP_ERRORS,
@@ -45,7 +45,7 @@ def build_sections(**values: str | list[str] | None) -> dict[str, str]:
     return sections
 
 
-def register(mcp: FastMCP, client: EchoClient) -> None:
+def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def list_prds(project_key: str) -> str:

@@ -28,7 +28,7 @@ async def test_wiki_body_and_body_only_search_from_camelcase(client, fake):
 
 @pytest.mark.asyncio
 async def test_wiki_tree_preserves_parent_and_order(client, fake):
-    fake.on("GET", ws_path("/projects"), json_response(200, [{"id": "p", "key": "ECHO"}]))
+    fake.on("GET", ws_path("/projects"), json_response(200, [{"id": "p", "key": "ABC"}]))
     fake.on(
         "GET",
         ws_path("/projects/p/wiki/tree"),
@@ -46,7 +46,7 @@ async def test_wiki_tree_preserves_parent_and_order(client, fake):
             ],
         ),
     )
-    text = await call_untrusted(client, "wiki_tree", project_key="ECHO")
+    text = await call_untrusted(client, "wiki_tree", project_key="ABC")
     assert text.splitlines() == ["- 부모 (root) `root`", "  - 규칙 (general) `page`"]
 
 
@@ -100,4 +100,4 @@ async def test_meeting_and_excerpts_camelcase(client, fake):
 def test_wire_values_do_not_fall_back_on_false_or_zero():
     assert render.wire_field({"sortOrder": 0, "sort_order": 9}, "sort_order") == 0
     assert render.wire_field({"isBlocked": False, "is_blocked": True}, "is_blocked") is False
-    assert "⛔" in render.ticket_line("ECHO", {"number": 1, "isBlocked": True})
+    assert "⛔" in render.ticket_line("ABC", {"number": 1, "isBlocked": True})

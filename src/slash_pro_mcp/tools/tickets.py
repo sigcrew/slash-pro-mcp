@@ -14,7 +14,7 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import render
-from ..client import EchoApiError, EchoClient, path_segment, shown_id
+from ..client import SlashApiError, SlashClient, path_segment, shown_id
 from ..common import (
     CLEAR_WORDS,
     DESTRUCTIVE,
@@ -92,7 +92,7 @@ def _sort_key(row: tuple[str, dict]) -> tuple[datetime, str]:
 MAX_LIST_LIMIT = 200
 
 
-def register(mcp: FastMCP, client: EchoClient) -> None:
+def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def list_tickets(
@@ -456,7 +456,7 @@ def register(mcp: FastMCP, client: EchoClient) -> None:
         for key in check_keys(keys):
             try:
                 ticket = (await client.get_ticket_by_key(key, include_notes=True)).data
-            except EchoApiError as exc:
+            except SlashApiError as exc:
                 if exc.status == 404:
                     lines.append(f"{key}: not found (skipped)")
                     continue

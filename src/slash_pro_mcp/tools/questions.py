@@ -9,11 +9,11 @@ from uuid import UUID
 from mcp.server.fastmcp import FastMCP
 
 from .. import render
-from ..client import EchoClient, path_segment
+from ..client import SlashClient, path_segment
 from ..common import QUESTION_STATES, READ, WRITE, check_choice, rubric_key, tool_errors
 
 
-def register(mcp: FastMCP, client: EchoClient) -> None:
+def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=WRITE)
     @tool_errors
     async def ask_questions(key: str, questions: list[dict], handoff_id: str | None = None) -> str:

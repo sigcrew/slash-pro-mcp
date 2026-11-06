@@ -8,7 +8,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from .. import render
-from ..client import EchoApiError, EchoClient, path_segment
+from ..client import SlashApiError, SlashClient, path_segment
 from ..common import (
     DESTRUCTIVE,
     DESTRUCTIVE_IDEMPOTENT,
@@ -22,7 +22,7 @@ from ..common import (
 MAX_SEARCH_PAGES = 20
 
 
-def register(mcp: FastMCP, client: EchoClient) -> None:
+def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def wiki_tree(project_key: str) -> str:
@@ -111,7 +111,7 @@ def register(mcp: FastMCP, client: EchoClient) -> None:
             payload = {"format": "markdown", "content": markdown, **body_extra}
             try:
                 await client.request("PUT", f"/wiki/pages/{page_id}/content", json={**payload, "mode": "replace"})
-            except EchoApiError as exc:
+            except SlashApiError as exc:
                 if exc.status != 409 or exc.code != "not_empty":
                     raise
                 await client.request("PUT", f"/wiki/pages/{page_id}/content", json={**payload, "mode": "append"})
@@ -145,7 +145,7 @@ def register(mcp: FastMCP, client: EchoClient) -> None:
         )
 
 
-def register_doc_updates(mcp: FastMCP, client: EchoClient) -> None:
+def register_doc_updates(mcp: FastMCP, client: SlashClient) -> None:
     """AI doc-update proposals from meetings. Accept and revert change the document, so the
     target page goes through `writable_page` (never the workspace rules page)."""
 

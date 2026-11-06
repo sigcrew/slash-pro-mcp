@@ -11,11 +11,11 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from .. import render
-from ..client import EchoClient, path_segment
+from ..client import SlashClient, path_segment
 from ..common import WRITE_IDEMPOTENT, tool_errors
 
 
-def register(mcp: FastMCP, client: EchoClient) -> None:
+def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=WRITE_IDEMPOTENT)
     @tool_errors
     async def add_agenda_item(
