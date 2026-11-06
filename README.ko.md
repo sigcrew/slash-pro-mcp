@@ -16,7 +16,8 @@
 
 ```bash
 # 토큰을 화면에 보이지 않게 입력받아 셸 기록에 남기지 않고 본인만 읽을 수 있는 파일로 저장
-(umask 077; mkdir -p ~/.config/slash-pro; read -rs T; printf '%s' "$T" > ~/.config/slash-pro/token)
+# 마지막 줄이 -rw------- 로 시작하면 정상
+(umask 077; mkdir -p ~/.config/slash-pro; printf '토큰 붙여넣고 Enter: '; read -rs T; echo; printf '%s' "$T" > ~/.config/slash-pro/token); ls -l ~/.config/slash-pro/token
 
 claude mcp add slash-pro -s user \
   -e SLASH_PRO_WORKSPACE_ID=<워크스페이스-uuid> \

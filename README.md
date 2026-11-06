@@ -17,10 +17,10 @@ It is a thin local **stdio** client. Each tool makes one REST call (or a few) to
 1. Save the token to a file only you can read. This prompts for the token without echoing it or putting it in your shell history:
 
    ```bash
-   (umask 077; mkdir -p ~/.config/slash-pro; read -rs T; printf '%s' "$T" > ~/.config/slash-pro/token)
+   (umask 077; mkdir -p ~/.config/slash-pro; printf 'Paste token, then Enter: '; read -rs T; echo; printf '%s' "$T" > ~/.config/slash-pro/token); ls -l ~/.config/slash-pro/token
    ```
 
-   On macOS and Linux the server refuses to start if the token file is accessible by group or others. Windows has no such permission check, so keep the file in your user profile.
+   The last line should start with `-rw-------`. On macOS and Linux the server refuses to start if the token file is accessible by group or others. Windows has no such permission check, so keep the file in your user profile.
 
 2. Register the server with your agent (see [Client setup](#client-setup)). With Claude Code:
 
