@@ -24,7 +24,7 @@ DESTRUCTIVE = ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorl
 DESTRUCTIVE_IDEMPOTENT = ToolAnnotations(
     readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False
 )
-MAX_RESULT_CHARS = 200_000  # one tool result; a longer one is cut (a fence may lose its closing tag)
+MAX_RESULT_CHARS = 200_000  # one tool result; a longer one is cut (`render.truncate`)
 TOOL_DEADLINE_SECONDS = 120  # a tool may make several requests, each with its own 60 s deadline
 MAX_KEYS = 50  # ticket keys per mark_deployed call
 MAX_LINKED_KEYS = 20  # follows origins (create_ticket) and ticket_keys (create_prd)
@@ -37,7 +37,7 @@ DEFAULT_LIST_STATUSES = ("todo", "in_progress")
 TICKET_STATUSES = ("backlog", "todo", "in_progress", "review", "done", "canceled")
 # what a write may set; canceling needs a reason, chosen in the web app's cancel dialog
 WRITABLE_TICKET_STATUSES = ("backlog", "todo", "in_progress", "review", "done")
-CANCELED_WRITE_ERROR = "canceled cannot be set here: canceling needs a reason, chosen in the web app."
+CANCELED_WRITE_ERROR = "canceled는 여기서 설정할 수 없음: 취소 사유는 웹 앱에서 선택"
 TICKET_PRIORITIES = ("low", "medium", "high", "urgent")
 # ticket relations
 RELATION_KINDS = ("follows", "blocks")
@@ -71,7 +71,7 @@ def rubric_key(value: str) -> str:
     """Accept the English key or its Korean label; anything else is a ValueError."""
     key = RUBRIC_KEY_ALIASES.get(value.strip(), value.strip().lower())
     if key not in RUBRIC_KEYS:
-        raise ValueError(f"unknown rubric_key: {value} (allowed: {', '.join(RUBRIC_KEYS)})")
+        raise ValueError(f"알 수 없는 rubric_key: {value} (허용: {', '.join(RUBRIC_KEYS)})")
     return key
 
 
@@ -84,20 +84,20 @@ def tool_errors[**P, R](fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[
         try:
             async with asyncio.timeout(TOOL_DEADLINE_SECONDS):
                 result = await fn(*args, **kwargs)
-            if isinstance(result, str) and len(result) > MAX_RESULT_CHARS:
-                result = f"{result[:MAX_RESULT_CHARS]}\n… truncated ({len(result)} chars)"  # type: ignore[assignment]
+            if isinstance(result, str):
+                result = render.truncate(result, MAX_RESULT_CHARS)  # type: ignore[assignment]
             return result
         except SlashApiError as exc:
             # The server's message can quote user-written text: fence it like any other content.
-            raise ToolError(f"SLASH API error:\n{render.untrusted('api error', str(exc))}") from exc
+            raise ToolError(f"SLASH API 오류:\n{render.untrusted('api error', str(exc))}") from exc
         except ValueError as exc:
             raise ToolError(str(exc)) from exc
         except TimeoutError as exc:
-            raise ToolError("SLASH API request timed out") from exc
+            raise ToolError("SLASH API 요청 시간 초과") from exc
         except httpx.HTTPError as exc:
             # Transport failures (DNS, TLS, timeout). Never carries request headers.
             detail = render.untrusted("transport error", str(exc)[:300])
-            raise ToolError(f"SLASH API unreachable: {type(exc).__name__}\n{detail}") from exc
+            raise ToolError(f"SLASH API 연결 실패: {type(exc).__name__}\n{detail}") from exc
 
     return wrapper
 
@@ -111,7 +111,7 @@ def split_statuses(status: str | None) -> list[str] | None:
     parts = [p.strip().lower() for p in status.replace("|", ",").split(",") if p.strip()]
     unknown = [p for p in parts if p not in TICKET_STATUSES]
     if unknown:
-        raise ValueError(f"unknown status: {', '.join(unknown)} (allowed: {', '.join(TICKET_STATUSES)})")
+        raise ValueError(f"알 수 없는 status: {', '.join(unknown)} (허용: {', '.join(TICKET_STATUSES)})")
     return parts
 
 
@@ -128,14 +128,14 @@ def check_due_date(value: str) -> str:
     try:
         return date.fromisoformat(raw).isoformat()
     except ValueError as exc:
-        raise ValueError(f"date must be YYYY-MM-DD: {raw[:40]}") from exc
+        raise ValueError(f"날짜는 YYYY-MM-DD 형식이어야 함: {raw[:40]}") from exc
 
 
 def check_keys(keys: list[str] | None, limit: int = MAX_KEYS) -> list[str]:
     """Ticket keys, stripped and upper-cased, empty ones dropped, at most `limit`."""
     cleaned = [k.strip().upper() for k in keys or [] if k.strip()]
     if len(cleaned) > limit:
-        raise ValueError(f"at most {limit} ticket keys per call")
+        raise ValueError(f"티켓 키는 한 번에 최대 {limit}개")
     return cleaned
 
 
@@ -153,7 +153,7 @@ CLEAR_WORDS = ("없음", "none", "null", "-")
 def check_choice(name: str, value: str, allowed: tuple[str, ...]) -> str:
     value = value.strip().lower()
     if value not in allowed:
-        raise ValueError(f"unknown {name}: {value[:40]} (allowed: {', '.join(allowed)})")
+        raise ValueError(f"알 수 없는 {name}: {value[:40]} (허용: {', '.join(allowed)})")
     return value
 
 

@@ -58,7 +58,7 @@ async def test_wiki_tree_resolves_project_and_indents_children(client: SlashClie
 async def test_wiki_tree_unknown_project(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
 
-    assert "Project not found: NOPE" in await call_error(client, "wiki_tree", project_key="NOPE")
+    assert "프로젝트 없음: NOPE" in await call_error(client, "wiki_tree", project_key="NOPE")
 
 
 async def test_get_wiki_page_renders_plain_text(client: SlashClient, fake: FakeSlash):
@@ -67,7 +67,7 @@ async def test_get_wiki_page_renders_plain_text(client: SlashClient, fake: FakeS
     text = await call_untrusted(client, "get_wiki_page", page_id="root-b")
 
     assert text == (
-        "# 회의록\n\n- id: root-b · type: minutes · meeting: m-1 · updated: 2026-09-18T03:00:00Z\n\n회의에서 mcp 얘기"
+        "# 회의록\n\n- id: root-b · 유형: minutes · 회의: m-1 · 수정: 2026-09-18T03:00:00Z\n\n회의에서 mcp 얘기"
     )
 
 
@@ -102,7 +102,7 @@ async def test_search_wiki_reads_at_most_20_pages(client: SlashClient, fake: Fak
     fake.on("GET", ws_path("/wiki/pages/p[0-9]+"), json_response(200, {**PAGES[2], "id": "p"}))
     text = await call_untrusted(client, "search_wiki", text="mcp", project_key="ABC")
     assert len(fake.calls_to("GET", ws_path("/wiki/pages/.*"))) == 20
-    assert text.endswith("… 3 more matching pages not shown; narrow the text")
+    assert text.endswith("… 일치하는 페이지 3개 더 있음(표시 안 함): text를 좁히기")
 
 
 async def test_search_wiki_within_one_page_and_no_match(client: SlashClient, fake: FakeSlash):
@@ -117,8 +117,8 @@ async def test_search_wiki_within_one_page_and_no_match(client: SlashClient, fak
 
 
 async def test_search_wiki_requires_a_scope(client: SlashClient, fake: FakeSlash):
-    assert "project_key or page_id is required" in await call_error(client, "search_wiki", text="x")
-    assert "text must not be empty" in await call_error(client, "search_wiki", text="  ", page_id="p")
+    assert "project_key나 page_id가 필요함" in await call_error(client, "search_wiki", text="x")
+    assert "text가 비어 있음" in await call_error(client, "search_wiki", text="  ", page_id="p")
 
 
 async def test_write_wiki_page_appends_markdown_with_source(client: SlashClient, fake: FakeSlash):
@@ -136,7 +136,7 @@ async def test_write_wiki_page_appends_markdown_with_source(client: SlashClient,
         source="ABC-23 구현",
     )
 
-    assert text == "Wiki append: MCP 서버 `00000000-0000-7000-8000-000000000031`"
+    assert text == "위키 append: MCP 서버 `00000000-0000-7000-8000-000000000031`"
     (put,) = fake.calls_to("PUT", ".*")
     assert put.body == {
         "format": "markdown",
@@ -153,12 +153,12 @@ async def test_write_wiki_page_replace_and_validation(client: SlashClient, fake:
 
     assert await call_untrusted(
         client, "write_wiki_page", page_id="00000000-0000-7000-8000-000000000031", markdown="본문", mode="replace"
-    ) == ("Wiki replace: MCP 서버 `00000000-0000-7000-8000-000000000031`")
+    ) == ("위키 replace: MCP 서버 `00000000-0000-7000-8000-000000000031`")
     assert fake.calls[-1].body == {"format": "markdown", "content": "본문", "mode": "replace"}
-    assert "unknown mode: upsert" in await call_error(
+    assert "알 수 없는 mode: upsert" in await call_error(
         client, "write_wiki_page", page_id="00000000-0000-7000-8000-000000000031", markdown="x", mode="upsert"
     )
-    assert "markdown must not be empty" in await call_error(
+    assert "markdown이 비어 있음" in await call_error(
         client, "write_wiki_page", page_id="00000000-0000-7000-8000-000000000031", markdown=" "
     )
 
@@ -205,7 +205,7 @@ async def test_create_wiki_page_under_section_root(client: SlashClient, fake: Fa
     md = "## 표\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n- [ ] 할 일"
     text = await call(client, "create_wiki_page", project_key="abc", section="feature-specs", title="스펙", markdown=md)
 
-    assert unfence(text, "wiki write") == "Wiki page created: 스펙 `pg-1` (feature-specs)"
+    assert unfence(text, "wiki write") == "위키 페이지 생성: 스펙 `pg-1` (feature-specs)"
     post = fake.calls[-1]
     assert post.body == {"title": "스펙", "parentId": "r-spec", "format": "markdown", "content": md}
     assert "section" in await call_error(
@@ -231,7 +231,7 @@ async def test_create_wiki_page_product_uses_strategy_doc_and_appends(client: Sl
     )
 
     assert unfence(text, "wiki write") == (
-        "Product strategy page written: ABC 제품 전략 `00000000-0000-7000-8000-000000000032`"
+        "제품 전략 페이지 작성: ABC 제품 전략 `00000000-0000-7000-8000-000000000032`"
     )
     assert fake.calls[-1].body == {"format": "markdown", "content": "## 가설", "mode": "replace"}
 
@@ -259,7 +259,7 @@ async def test_create_wiki_page_product_falls_back_to_append_when_human_wrote(cl
     text = await call(client, "create_wiki_page", project_key="ABC", section="product", title="x", markdown="## 가설")
 
     assert puts == ["replace", "append"]
-    assert unfence(text, "wiki write").startswith("Product strategy page written")
+    assert unfence(text, "wiki write").startswith("제품 전략 페이지 작성")
 
 
 async def test_create_wiki_page_product_does_not_append_on_other_conflicts(client: SlashClient, fake: FakeSlash):

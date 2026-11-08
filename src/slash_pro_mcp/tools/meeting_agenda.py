@@ -26,13 +26,11 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         project_key: str | None = None,
         ticket_key: str | None = None,
     ) -> str:
-        """Add one agenda line (text) to the next occurrence of a recurring meeting (series_title: the
-        calendar title) or to a calendar instance (event_id). The meeting row need not exist yet.
-        Optional target: ticket_key (that ticket) or project_key (its product strategy page); without one the
-        line belongs to the meeting itself. evidence: optional supporting text. Sending the same text again
-        does not create a duplicate. 409 ambiguous_series lists candidate titles."""
+        """Add an agenda line to the next occurrence of a recurring meeting (series_title: calendar title) or
+        to a calendar instance (event_id); exactly one. Optional target: ticket_key, or project_key (its strategy page).
+        The same text again is not duplicated. 409 ambiguous_series lists candidate titles."""
         if bool(series_title) == bool(event_id):
-            raise ValueError("pass exactly one of series_title and event_id")
+            raise ValueError("series_title과 event_id 중 하나만 지정")
         title = ""
         when = ""
         if series_title:
@@ -51,12 +49,12 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
             "POST", f"/events/{path_segment(event_id, 'event_id')}/agenda-questions", json=body
         )
         out = response.data or {}
-        where = f"{title} {when}".strip() or f"event {event_id}"
-        verb = "Already on the agenda" if out.get("duplicate") else "Agenda line added"
-        made = " · scheduled meeting row created" if out.get("meetingCreated") else ""
+        where = f"{title} {when}".strip() or f"이벤트 {event_id}"
+        verb = "이미 안건에 있음" if out.get("duplicate") else "안건 추가"
+        made = " · 예정 회의 생성" if out.get("meetingCreated") else ""
         return render.untrusted(
             "agenda",
             f"{verb}: {where} — {text} "
-            f"(meeting {out.get('meetingId')}, question {out.get('questionId')}, "
-            f"target {out.get('targetType')}{made})",
+            f"(회의 {out.get('meetingId')}, 안건 {out.get('questionId')}, "
+            f"대상 {out.get('targetType')}{made})",
         )

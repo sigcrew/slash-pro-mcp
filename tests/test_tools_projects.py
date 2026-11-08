@@ -26,11 +26,11 @@ async def test_create_project(client: SlashClient, fake: FakeSlash):
 
     text = await ok(client, "create_project", {"key": "demo", "name": "Demo", "description": "데모 앱"})
 
-    assert unfence(text, "project write") == "Project created: DEMO — Demo `p-1`"
+    assert unfence(text, "project write") == "프로젝트 생성: DEMO — Demo `p-1`"
     assert fake.calls[-1].body == {"key": "DEMO", "name": "Demo", "description": "데모 앱"}
     for bad in (" ", "A", "1AB", "A-B", "A" * 21):
-        assert "must match" in await err(client, "create_project", {"key": bad, "name": "x"})
-    assert "name must not be empty" in await err(client, "create_project", {"key": "AB", "name": " "})
+        assert "형식이어야 함" in await err(client, "create_project", {"key": bad, "name": "x"})
+    assert "name이 비어 있음" in await err(client, "create_project", {"key": "AB", "name": " "})
 
 
 async def test_create_project_403_without_scope(client: SlashClient, fake: FakeSlash):
@@ -45,9 +45,9 @@ async def test_update_project(client: SlashClient, fake: FakeSlash):
 
     text = await ok(client, "update_project", {"key": "demo", "name": "Demo 2"})
 
-    assert unfence(text, "project write") == "Project updated: DEMO — Demo 2"
+    assert unfence(text, "project write") == "프로젝트 수정: DEMO — Demo 2"
     assert fake.calls[-1].body == {"name": "Demo 2"}
-    assert "name or description is required" in await err(client, "update_project", {"key": "DEMO"})
+    assert "name이나 description이 필요함" in await err(client, "update_project", {"key": "DEMO"})
 
 
 async def test_create_ticket_with_prd_links_after_create(client: SlashClient, fake: FakeSlash):
@@ -56,17 +56,21 @@ async def test_create_ticket_with_prd_links_after_create(client: SlashClient, fa
     fake.on(
         "GET",
         ws_path("/tickets/by-key/DEMO-1"),
-        json_response(200, {"id": "t-1", "number": 1, "title": "T", "status": "todo"}, etag='"v1"'),
+        json_response(
+            200, {"id": "t-1", "number": 1, "title": "T", "status": "todo", "priority": "medium"}, etag='"v1"'
+        ),
     )
     fake.on(
         "PATCH",
         ws_path("/tickets/t-1"),
-        json_response(200, {"id": "t-1", "number": 1, "title": "T", "status": "todo"}, etag='"v2"'),
+        json_response(
+            200, {"id": "t-1", "number": 1, "title": "T", "status": "todo", "priority": "medium"}, etag='"v2"'
+        ),
     )
 
     text = await ok(client, "create_ticket", {"project_key": "DEMO", "title": "T", "prd_page_id": "prd-9"})
 
-    assert unfence(text, "ticket write").startswith("Created: DEMO-1")
+    assert unfence(text, "ticket write").startswith("티켓 생성: DEMO-1")
     patch = fake.calls[-1]
     assert patch.method == "PATCH" and patch.body == {"prd_page_id": "prd-9"}
     assert patch.headers["if-match"] == '"v1"'

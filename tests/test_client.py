@@ -76,14 +76,14 @@ async def test_parse_error_carries_message_and_errors_verbatim():
     assert str(detail) == "HTTP 403: scope_required: tickets:write"
 
     expired = parse_error(401, '{"detail": "Invalid token"}')
-    assert "expired" in str(expired)
+    assert "만료" in str(expired)
 
     raw = parse_error(502, "<html>bad gateway</html>")
     assert str(raw) == "HTTP 502: <html>bad gateway</html>"
     coded = parse_error(
         409, json.dumps({"message": "many", "code": "ambiguous_series", "candidates": [f"t{i}" for i in range(12)]})
     )
-    assert str(coded) == "HTTP 409: many\ncode: ambiguous_series\ncandidates: " + ", ".join(f"t{i}" for i in range(10))
+    assert str(coded) == "HTTP 409: many\ncode: ambiguous_series\n후보: " + ", ".join(f"t{i}" for i in range(10))
     assert coded.code == "ambiguous_series"
     assert "code:" not in str(parse_error(500, json.dumps({"message": "x", "code": 500})))
 
@@ -163,7 +163,7 @@ async def test_ticket_write_gives_up_after_second_409(client: SlashClient, fake:
     with pytest.raises(VersionConflict) as excinfo:
         await client.ticket_write("ABC-3", "POST", "/notes", {"body": "x"})
 
-    assert "changed elsewhere twice" in str(excinfo.value)
+    assert "다른 곳에서 두 번 바뀜" in str(excinfo.value)
     assert "version_conflict" in str(excinfo.value)
     assert len(fake.calls_to("POST", ".*")) == 2
 

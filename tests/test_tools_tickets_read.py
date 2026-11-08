@@ -109,7 +109,7 @@ async def test_list_tickets_limit_and_footer(client: SlashClient, fake: FakeSlas
         "- CORE-2 · todo · medium — T2",
         "- CORE-3 · todo · medium — T3",
     ]
-    assert lines[3] == "… 4 more — narrow with status/assignee/prd or raise limit (max 200)"
+    assert lines[3] == "… 외 4개 — status/assignee/prd로 좁히거나 limit을 올리기 (최대 200)"
     assert len((await call_untrusted(client, "list_tickets", limit=999)).splitlines()) == 7
 
 
@@ -124,7 +124,7 @@ async def test_list_tickets_assignee_and_blocked_filters(client: SlashClient, fa
         "is_blocked": "true",
     }
     text = await call_error(client, "list_tickets", assignee="me")
-    assert "pass your name" in text
+    assert "이름이나 user id로 지정" in text
 
 
 async def test_list_tickets_single_status_is_pushed_to_the_api(client: SlashClient, fake: FakeSlash):
@@ -165,8 +165,8 @@ async def test_list_tickets_all_and_empty(client: SlashClient, fake: FakeSlash):
 async def test_list_tickets_rejects_unknown_project_and_status(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
 
-    assert "Project not found: NOPE" in await call_error(client, "list_tickets", project_key="NOPE")
-    assert "unknown status: bogus" in await call_error(client, "list_tickets", status="bogus")
+    assert "프로젝트 없음: NOPE" in await call_error(client, "list_tickets", project_key="NOPE")
+    assert "알 수 없는 status: bogus" in await call_error(client, "list_tickets", status="bogus")
 
 
 async def test_get_ticket_returns_server_markdown_verbatim(client: SlashClient, fake: FakeSlash):

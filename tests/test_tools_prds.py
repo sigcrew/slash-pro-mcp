@@ -37,7 +37,7 @@ async def test_list_prds(client: SlashClient, fake: FakeSlash):
     )
     fake.on("GET", ws_path("/projects/p-demo/prds"), json_response(200, []))
     assert await call_untrusted(client, "list_prds", project_key="ABC") == "(PRD 없음)"
-    assert "Project not found: NOPE" in await call_error(client, "list_prds", project_key="NOPE")
+    assert "프로젝트 없음: NOPE" in await call_error(client, "list_prds", project_key="NOPE")
 
 
 async def test_get_prd_proxies_markdown(client: SlashClient, fake: FakeSlash):
@@ -81,11 +81,11 @@ async def test_create_prd_builds_sections_and_assigns_keys(client: SlashClient, 
     (patch,) = fake.calls_to("PATCH", ".*")
     assert patch.body == {"prd_page_id": "00000000-0000-7000-8000-000000000033"} and patch.headers["if-match"] == '"v1"'
     assert unfence(text, "prd write") == (
-        "PRD created: 온보딩 개선 (id 00000000-0000-7000-8000-000000000033)\nAttached: ABC-3"
+        "PRD 생성: 온보딩 개선 (id 00000000-0000-7000-8000-000000000033)\n연결: ABC-3"
     )
-    assert "title must not be empty" in await call_error(client, "create_prd", project_key="ABC", title=" ")
+    assert "title이 비어 있음" in await call_error(client, "create_prd", project_key="ABC", title=" ")
     too_many = [f"ABC-{i}" for i in range(21)]
-    assert "at most 20" in await call_error(client, "create_prd", project_key="ABC", title="t", ticket_keys=too_many)
+    assert "최대 20개" in await call_error(client, "create_prd", project_key="ABC", title="t", ticket_keys=too_many)
 
 
 async def test_create_prd_keeps_the_new_id_when_attaching_fails(client: SlashClient, fake: FakeSlash):
@@ -94,8 +94,8 @@ async def test_create_prd_keeps_the_new_id_when_attaching_fails(client: SlashCli
     fake.on("GET", ws_path("/tickets/by-key/ABC-3"), json_response(200, {"id": "t-3"}, etag='"v1"'))
     fake.on("PATCH", ws_path("/tickets/t-3"), json_response(422, raw={"message": "prd_page_invalid"}))
     text = unfence(await call(client, "create_prd", project_key="ABC", title="t", ticket_keys=["ABC-3"]), "prd write")
-    assert text.startswith("PRD created: 온보딩 개선 (id 00000000-0000-7000-8000-000000000033)\n")
-    assert "but attaching ABC-3 failed:\nHTTP 422: prd_page_invalid" in text
+    assert text.startswith("PRD 생성: 온보딩 개선 (id 00000000-0000-7000-8000-000000000033)\n")
+    assert "그러나 ABC-3 연결 실패:\nHTTP 422: prd_page_invalid" in text
 
 
 async def test_assign_ticket_prd_and_unassign(client: SlashClient, fake: FakeSlash):
@@ -117,7 +117,7 @@ async def test_assign_ticket_prd_and_unassign(client: SlashClient, fake: FakeSla
     )
     assert fake.calls[-1].body == {"prd_page_id": "00000000-0000-7000-8000-000000000033"}
     fake.on("PATCH", ws_path("/tickets/t-3"), json_response(200, {"id": "t-3", "prd": None}, etag='"v3"'))
-    assert await call_untrusted(client, "assign_ticket_prd", key="ABC-3") == "ABC-3 → PRD none"
+    assert await call_untrusted(client, "assign_ticket_prd", key="ABC-3") == "ABC-3 → PRD 없음"
     assert fake.calls[-1].body == {"prd_page_id": None}
 
 
@@ -141,7 +141,7 @@ async def test_create_prd_with_markdown_replaces_skeleton(client: SlashClient, f
     md = "## 문제\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n- [ ] 할 일"
     text = await call(client, "create_prd", project_key="ABC", title="온보딩 개선", markdown=md)
     assert fake.calls[-1].body == {"format": "markdown", "content": md, "mode": "replace"}
-    assert unfence(text, "prd write") == "PRD created: 온보딩 개선 (id 00000000-0000-7000-8000-000000000033)"
-    assert "cannot be combined" in await call_error(
+    assert unfence(text, "prd write") == "PRD 생성: 온보딩 개선 (id 00000000-0000-7000-8000-000000000033)"
+    assert "함께 쓸 수 없음" in await call_error(
         client, "create_prd", project_key="ABC", title="x", problem="y", markdown=md
     )

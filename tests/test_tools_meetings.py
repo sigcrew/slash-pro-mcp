@@ -1,4 +1,4 @@
-"""get_meeting / get_minutes / find_transcript_excerpts."""
+"""get_meeting (overview / minutes) / find_transcript_excerpts."""
 
 import pytest
 
@@ -204,14 +204,17 @@ async def test_get_meeting_404_is_a_tool_error(client: SlashClient, fake: FakeSl
     assert "HTTP 404: Meeting not found" in await call_error(client, "get_meeting", meeting_id=MEETING_ID)
 
 
-async def test_get_minutes_returns_markdown(client: SlashClient, fake: FakeSlash):
+async def test_get_meeting_minutes_returns_markdown(client: SlashClient, fake: FakeSlash):
     fake.on(
         "GET",
         ws_path(f"/meetings/{MEETING_ID}/minutes.md"),
         text_response(200, "# 회의록\n- 결정 1"),
     )
 
-    assert await call_untrusted(client, "get_minutes", meeting_id=MEETING_ID) == "# 회의록\n- 결정 1"
+    assert (
+        unfence(await call(client, "get_meeting", meeting_id=MEETING_ID, part="minutes"), "meeting minutes")
+        == "# 회의록\n- 결정 1"
+    )
 
 
 async def test_find_transcript_excerpts_posts_title_and_renders_timestamps(client: SlashClient, fake: FakeSlash):
@@ -363,7 +366,7 @@ async def test_add_todo_resolves_assignee_and_posts_due_and_evidence(client: Sla
     )
 
     assert unfence(text, "todo") == (
-        f"To-do added: 도구 설명 다듬기 · assignee 철수 · due 2026-10-20 (id todo-1, meeting {MEETING_ID})"
+        f"할 일 추가: 도구 설명 다듬기 · 담당자 철수 · 마감일 2026-10-20 (id todo-1, 회의 {MEETING_ID})"
     )
     (post,) = fake.calls_to("POST", ".*")
     assert post.body == {
@@ -378,22 +381,22 @@ async def test_add_todo_minimal_and_validation(client: SlashClient, fake: FakeSl
     fake.on("POST", TODO_PATH, json_response(201, {"id": "todo-2", "title": "회고 잡기"}))
 
     text = await call(client, "add_todo", meeting_id=MEETING_ID, title="회고 잡기")
-    assert unfence(text, "todo") == f"To-do added: 회고 잡기 · no assignee · due none (id todo-2, meeting {MEETING_ID})"
+    assert unfence(text, "todo") == f"할 일 추가: 회고 잡기 · 담당자 없음 · 마감일 없음 (id todo-2, 회의 {MEETING_ID})"
     assert fake.calls[-1].body == {"title": "회고 잡기"}
 
-    assert "date must be YYYY-MM-DD" in await call_error(
+    assert "YYYY-MM-DD 형식이어야 함" in await call_error(
         client, "add_todo", meeting_id=MEETING_ID, title="x", due="금요일"
     )
-    assert "title must not be empty" in await call_error(client, "add_todo", meeting_id=MEETING_ID, title=" ")
+    assert "title이 비어 있음" in await call_error(client, "add_todo", meeting_id=MEETING_ID, title=" ")
 
 
 async def test_add_todo_unknown_assignee_is_an_error_and_posts_nothing(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/assignees"), json_response(200, ASSIGNEES))
 
     text = await call_error(client, "add_todo", meeting_id=MEETING_ID, title="x", assignee="민수")
-    assert "No active member matches '민수'. Members:" in text and "\n홍길동, 철수, 철수 김\n" in text
+    assert "'민수'에 맞는 활성 멤버 없음. 멤버:" in text and "\n홍길동, 철수, 철수 김\n" in text
     by_id = await call_error(client, "add_todo", meeting_id=MEETING_ID, title="x", assignee="u-nope")
-    assert "No active member matches" in by_id
+    assert "맞는 활성 멤버 없음" in by_id
     assert not fake.calls_to("POST", ".*")
 
 
@@ -405,4 +408,4 @@ async def test_add_todo_partial_name_ambiguity_lists_candidates(client: SlashCli
     )
 
     text = await call_error(client, "add_todo", meeting_id=MEETING_ID, title="x", assignee="철수")
-    assert "matches several members" in text and "철수 김(a)" in text and "철수 박(b)" in text
+    assert "맞는 멤버가 여럿" in text and "철수 김(a)" in text and "철수 박(b)" in text

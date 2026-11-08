@@ -59,16 +59,16 @@ async def test_ask_questions_maps_aliases_and_handoff(client: SlashClient, fake:
         "handoff_note_id": "h-1",
     }
     assert text == (
-        "Asked 1 question(s) (ABC-3) · handoff h-1 → input_required\n"
+        "질문 1개 등록 (ABC-3) · 인계 h-1 → input_required\n"
         "- [open · 완료 조건] 무엇을 보면 끝? (선택: 가입 1분 / 이탈 30%) — q-1"
     )
-    assert "unknown rubric_key: 담당" in await call_error(
+    assert "알 수 없는 rubric_key: 담당" in await call_error(
         client,
         "ask_questions",
         key="ABC-3",
         questions=[{"rubric_key": "담당", "question": "?"}],
     )
-    assert "questions must have 1-4 items" in await call_error(client, "ask_questions", key="ABC-3", questions=[])
+    assert "questions는 1~4개" in await call_error(client, "ask_questions", key="ABC-3", questions=[])
 
 
 async def test_ask_questions_surfaces_cap(client: SlashClient, fake: FakeSlash):
@@ -114,8 +114,8 @@ async def test_list_questions_by_key_and_inbox(client: SlashClient, fake: FakeSl
     fake.on("GET", ws_path("/questions/inbox"), json_response(200, []))
     assert await call_untrusted(client, "list_questions", to="me") == "(질문 없음)"
     assert fake.calls[-1].query == {"to": "me"}
-    assert "state applies only with key" in await call_error(client, "list_questions", state="answered")
-    assert "key or to, not both" in await call_error(client, "list_questions", key="ABC-3", to="me")
+    assert "state는 key와 함께만 씀" in await call_error(client, "list_questions", state="answered")
+    assert "key와 to 중 하나만" in await call_error(client, "list_questions", key="ABC-3", to="me")
     member = "00000000-0000-7000-8000-0000000000aa"
     await call_untrusted(client, "list_questions", to=member.upper())
     assert fake.calls[-1].query == {"to": member}
@@ -152,7 +152,7 @@ async def test_readiness_refresh_posts_judge_and_renders(client: SlashClient, fa
     text = await call_untrusted(client, "readiness_refresh", key="abc-3")
     (post,) = fake.calls_to("POST", ".*")
     assert post.body in (None, {}, b"")
-    assert text.splitlines()[0] == "Remaining assumptions: 1 (ABC-3) · judged"
+    assert text.splitlines()[0] == "남은 가정: 1 (ABC-3) · 판정함"
     assert (
         "[open · 범위] 구현자는 '결제는 제외'라고 가정할 것 같습니다. 맞나요? (선택: 결제는 제외 / 결제 포함) — q-1"
         in text
@@ -176,9 +176,7 @@ async def test_readiness_refresh_reports_skips_and_limit(client: SlashClient, fa
         ),
     )
     text = await call_untrusted(client, "readiness_refresh", key="ABC-3")
-    assert (
-        text.splitlines()[0] == "Remaining assumptions: 2 (ABC-3) · open questions exist; wait for a person to answer"
-    )
+    assert text.splitlines()[0] == "남은 가정: 2 (ABC-3) · 열린 질문이 있음: 사람의 답을 기다리기"
     fake.on(
         "POST",
         ws_path("/tickets/t-3/readiness/judge"),

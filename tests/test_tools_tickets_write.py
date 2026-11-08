@@ -1,4 +1,4 @@
-"""create_ticket / update_ticket_status / add_note / add_handoff / mark_deployed.
+"""create_ticket / update_ticket / add_note / add_handoff / mark_deployed.
 
 Every ticket write must: resolve by key → send `If-Match` from that GET →
 retry once on 409 → surface the server error text unchanged.
@@ -51,7 +51,7 @@ async def test_create_ticket_returns_key_and_reads_back(client: SlashClient, fak
         priority="high",
     )
 
-    assert unfence(text, "ticket write") == "Created: ABC-41 · backlog · medium — 에코 MCP 서버"
+    assert unfence(text, "ticket write") == "티켓 생성: ABC-41 · backlog · medium — 에코 MCP 서버"
     (post,) = fake.calls_to("POST", ".*")
     assert post.body == {"title": "에코 MCP 서버", "priority": "high", "description": "설명"}
     assert [c.method for c in fake.calls] == ["GET", "POST", "GET"]
@@ -70,7 +70,7 @@ async def test_create_ticket_with_status_patches_after_create(client: SlashClien
 
     text = await call(client, "create_ticket", project_key="ABC", title="x", status="in_progress")
 
-    assert unfence(text, "ticket write").startswith("Created: ABC-42 · in_progress")
+    assert unfence(text, "ticket write").startswith("티켓 생성: ABC-42 · in_progress")
     (patch,) = fake.calls_to("PATCH", ".*")
     assert patch.body == {"status": "in_progress"}
     assert patch.headers["if-match"] == '"c1"'
@@ -79,11 +79,11 @@ async def test_create_ticket_with_status_patches_after_create(client: SlashClien
 async def test_create_ticket_validation_and_unknown_project(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
 
-    assert "unknown priority: asap" in await call_error(
+    assert "알 수 없는 priority: asap" in await call_error(
         client, "create_ticket", project_key="ABC", title="x", priority="asap"
     )
-    assert "Project not found: NOPE" in await call_error(client, "create_ticket", project_key="NOPE", title="x")
-    assert "model needs to" in await call_error(client, "create_ticket", project_key="ABC", title="x", model="m")
+    assert "프로젝트 없음: NOPE" in await call_error(client, "create_ticket", project_key="NOPE", title="x")
+    assert "model에는 to" in await call_error(client, "create_ticket", project_key="ABC", title="x", model="m")
     assert not fake.calls_to("POST", ".*")
 
 
@@ -107,14 +107,14 @@ async def test_create_ticket_422_passes_field_errors(client: SlashClient, fake: 
     assert "body.title: String should have at most 500" in text
 
 
-# -- update_ticket_status --------------------------------------------------------
+# -- update_ticket (status) ------------------------------------------------------
 
 
-async def test_update_ticket_status_uses_if_match(client: SlashClient, fake: FakeSlash):
+async def test_update_ticket_with_status_uses_if_match(client: SlashClient, fake: FakeSlash):
     by_key(fake, "ABC-23", ticket(), etag='"s1"')
     fake.on("PATCH", ws_path("/tickets/t-23"), json_response(200, ticket(status="review"), etag='"s2"'))
 
-    text = await call(client, "update_ticket_status", key="abc-23", status="review")
+    text = unfence(await call(client, "update_ticket", key="abc-23", status="review"), "ticket write")
 
     assert text == "ABC-23 → review"
     (patch,) = fake.calls_to("PATCH", ".*")
@@ -123,29 +123,29 @@ async def test_update_ticket_status_uses_if_match(client: SlashClient, fake: Fak
     assert patch.body == {"status": "review"}
 
 
-async def test_update_ticket_status_rejects_unknown_status_before_any_call(client: SlashClient, fake: FakeSlash):
-    assert "unknown status: merged" in await call_error(client, "update_ticket_status", key="ABC-23", status="merged")
+async def test_update_ticket_with_status_rejects_unknown_status_before_any_call(client: SlashClient, fake: FakeSlash):
+    assert "알 수 없는 status: merged" in await call_error(client, "update_ticket", key="ABC-23", status="merged")
     assert fake.calls == []
 
 
 @pytest.mark.parametrize("status", ["canceled", " CANCELED "])
-async def test_update_ticket_status_refuses_canceled(client: SlashClient, fake: FakeSlash, status: str):
+async def test_update_ticket_with_status_refuses_canceled(client: SlashClient, fake: FakeSlash, status: str):
     """Canceling needs a reason (web app dialog); canceled stays usable as a list filter."""
-    text = await call_error(client, "update_ticket_status", key="ABC-23", status=status)
-    assert "canceling needs a reason" in text
+    text = await call_error(client, "update_ticket", key="ABC-23", status=status)
+    assert "취소 사유는 웹 앱에서 선택" in text
     assert fake.calls == []
 
 
 async def test_create_ticket_refuses_canceled_before_any_call(client: SlashClient, fake: FakeSlash):
     text = await call_error(client, "create_ticket", project_key="ABC", title="t", status="canceled")
-    assert "canceling needs a reason" in text
+    assert "취소 사유는 웹 앱에서 선택" in text
     assert fake.calls == []
 
 
-async def test_update_ticket_status_allows_done(client: SlashClient, fake: FakeSlash):
+async def test_update_ticket_with_status_allows_done(client: SlashClient, fake: FakeSlash):
     by_key(fake, "ABC-23", ticket(), etag='"s1"')
     fake.on("PATCH", ws_path("/tickets/t-23"), json_response(200, ticket(status="done"), etag='"s2"'))
-    assert await call(client, "update_ticket_status", key="ABC-23", status="done") == "ABC-23 → done"
+    assert unfence(await call(client, "update_ticket", key="ABC-23", status="done"), "ticket write") == "ABC-23 → done"
     assert fake.calls_to("PATCH", ".*")[0].body == {"status": "done"}
 
 
@@ -157,11 +157,11 @@ async def test_create_ticket_keeps_the_new_key_when_a_follow_up_step_fails(clien
     text = unfence(
         await call(client, "create_ticket", project_key="ABC", title="x", prd_page_id="prd-9"), "ticket write"
     )
-    assert text.splitlines()[0] == "Created: ABC-45 · backlog · medium — 에코 MCP 서버"
-    assert "Created ABC-45, but attaching the PRD failed:\nHTTP 422: prd_page_invalid" in text
+    assert text.splitlines()[0] == "티켓 생성: ABC-45 · backlog · medium — 에코 MCP 서버"
+    assert "ABC-45 생성됨, 그러나 PRD 연결 실패:\nHTTP 422: prd_page_invalid" in text
 
 
-async def test_update_ticket_status_retries_once_on_409_then_fails(client: SlashClient, fake: FakeSlash):
+async def test_update_ticket_with_status_retries_once_on_409_then_fails(client: SlashClient, fake: FakeSlash):
     by_key(fake, "ABC-23", ticket(), etag='"s1"')
     fake.on(
         "PATCH",
@@ -169,14 +169,14 @@ async def test_update_ticket_status_retries_once_on_409_then_fails(client: Slash
         json_response(409, raw={"message": "version_conflict", "current": ticket()}, etag='"s9"'),
     )
 
-    text = await call_error(client, "update_ticket_status", key="ABC-23", status="review")
+    text = await call_error(client, "update_ticket", key="ABC-23", status="review")
 
-    assert "ABC-23 changed elsewhere twice" in text
+    assert "ABC-23: 쓰는 동안 다른 곳에서 두 번 바뀜" in text
     assert "version_conflict" in text
     assert [c.method for c in fake.calls] == ["GET", "PATCH", "GET", "PATCH"]
 
 
-# -- update_ticket (담당·기한) -------------------------------------------
+# -- update_ticket (상태·담당·기한) -------------------------------------------
 
 ASSIGNEES = [{"id": "u-hong", "name": "홍길동"}, {"id": "u-cs", "name": "철수"}]
 
@@ -186,12 +186,12 @@ async def test_update_ticket_sets_assignee_by_name_and_due_with_if_match(client:
     by_key(fake, "ABC-339", ticket(339), etag='"a1"')
     fake.on("PATCH", ws_path("/tickets/t-339"), json_response(200, ticket(339), etag='"a2"'))
 
-    text = await call(client, "update_ticket", key="abc-339", assignee="철수", due="2026-10-31")
+    text = await call(client, "update_ticket", key="abc-339", status="review", assignee="철수", due="2026-10-31")
 
-    assert unfence(text, "ticket write") == "ABC-339 assignee → 철수 · due → 2026-10-31"
+    assert unfence(text, "ticket write") == "ABC-339 → review · 담당자 → 철수 · 마감일 → 2026-10-31"
     (patch,) = fake.calls_to("PATCH", ".*")
     assert patch.headers["if-match"] == '"a1"'
-    assert patch.body == {"assignee_id": "u-cs", "due_date": "2026-10-31"}
+    assert patch.body == {"status": "review", "assignee_id": "u-cs", "due_date": "2026-10-31"}
 
 
 async def test_update_ticket_clears_and_keeps_untouched_fields(client: SlashClient, fake: FakeSlash):
@@ -199,19 +199,19 @@ async def test_update_ticket_clears_and_keeps_untouched_fields(client: SlashClie
     fake.on("PATCH", ws_path("/tickets/t-339"), json_response(200, ticket(339), etag='"a2"'))
 
     assert unfence(await call(client, "update_ticket", key="ABC-339", due="없음"), "ticket write") == (
-        "ABC-339 due → none"
+        "ABC-339 마감일 → 없음"
     )
     assert fake.calls_to("PATCH", ".*")[-1].body == {"due_date": None}
     assert unfence(await call(client, "update_ticket", key="ABC-339", assignee="none"), "ticket write") == (
-        "ABC-339 assignee → none"
+        "ABC-339 담당자 → 없음"
     )
     assert fake.calls_to("PATCH", ".*")[-1].body == {"assignee_id": None}
     assert not fake.calls_to("GET", ws_path("/assignees"))
 
 
 async def test_update_ticket_validation_before_any_write(client: SlashClient, fake: FakeSlash):
-    assert "assignee or due is required" in await call_error(client, "update_ticket", key="ABC-339")
-    assert "date must be YYYY-MM-DD" in await call_error(client, "update_ticket", key="ABC-339", due="10월 31일")
+    assert "status, assignee, due 중 하나가 필요함" in await call_error(client, "update_ticket", key="ABC-339")
+    assert "YYYY-MM-DD 형식이어야 함" in await call_error(client, "update_ticket", key="ABC-339", due="10월 31일")
     assert fake.calls == []
 
 
@@ -225,7 +225,7 @@ async def test_update_ticket_retries_once_on_409_then_fails(client: SlashClient,
 
     text = await call_error(client, "update_ticket", key="ABC-339", due="2026-10-31")
 
-    assert "ABC-339 changed elsewhere twice" in text
+    assert "ABC-339: 쓰는 동안 다른 곳에서 두 번 바뀜" in text
     assert [c.method for c in fake.calls] == ["GET", "PATCH", "GET", "PATCH"]
 
 
@@ -238,7 +238,7 @@ async def test_add_note_posts_body_with_if_match(client: SlashClient, fake: Fake
 
     text = await call(client, "add_note", key="ABC-23", body="커밋 abc123")
 
-    assert text == "Note added note-1 (ABC-23)"
+    assert text == "노트 추가: note-1 (ABC-23)"
     (post,) = fake.calls_to("POST", ".*")
     assert post.body == {"body": "커밋 abc123"}
     assert post.headers["if-match"] == '"n1"'
@@ -259,7 +259,7 @@ async def test_add_note_recovers_from_one_409(client: SlashClient, fake: FakeSla
 
     fake.on("POST", ws_path("/tickets/t-23/notes"), notes)
 
-    assert await call(client, "add_note", key="ABC-23", body="x") == "Note added note-2 (ABC-23)"
+    assert await call(client, "add_note", key="ABC-23", body="x") == "노트 추가: note-2 (ABC-23)"
     assert [c.headers["if-match"] for c in fake.calls_to("POST", ".*")] == ['"n1"', '"n2"']
 
 
@@ -270,7 +270,7 @@ async def test_add_note_empty_body_and_missing_ticket(client: SlashClient, fake:
         json_response(404, raw={"message": "Ticket not found"}),
     )
 
-    assert "body must not be empty" in await call_error(client, "add_note", key="ABC-23", body="  ")
+    assert "body가 비어 있음" in await call_error(client, "add_note", key="ABC-23", body="  ")
     assert "HTTP 404: Ticket not found" in await call_error(client, "add_note", key="ABC-999", body="x")
 
 
@@ -293,7 +293,7 @@ async def test_add_handoff_matches_skill_payload(client: SlashClient, fake: Fake
         verification="uv run pytest tests/slash_pro_mcp",
     )
 
-    assert text == "Handoff note added note-h (ABC-23)"
+    assert text == "인계 노트 추가: note-h (ABC-23)"
     (post,) = fake.calls_to("POST", ".*")
     assert post.body == {
         "kind": "handoff",
@@ -322,7 +322,7 @@ async def test_add_handoff_defaults_and_requires_goal(client: SlashClient, fake:
         "acceptance": [],
         "verification": "",
     }
-    assert "goal must not be empty" in await call_error(client, "add_handoff", key="ABC-23", goal=" ")
+    assert "goal이 비어 있음" in await call_error(client, "add_handoff", key="ABC-23", goal=" ")
 
 
 # -- mark_deployed ---------------------------------------------------------------
@@ -348,7 +348,7 @@ async def test_mark_deployed_is_idempotent_and_skips_missing(client: SlashClient
 
     text = await call(client, "mark_deployed", version="0.9.0", keys=["abc-1", "ABC-2", "ABC-3"])
 
-    assert text.splitlines() == ["ABC-1: recorded", "ABC-2: already recorded", "ABC-3: not found (skipped)"]
+    assert text.splitlines() == ["ABC-1: 기록함", "ABC-2: 이미 기록됨", "ABC-3: 없음 (건너뜀)"]
     (post,) = fake.calls_to("POST", ".*")
     assert post.body == {"kind": "system", "body": "0.9.0으로 배포됨"}
     assert post.headers["if-match"] == '"d1"'
@@ -359,10 +359,10 @@ async def test_mark_deployed_is_idempotent_and_skips_missing(client: SlashClient
 async def test_mark_deployed_validation_and_other_errors(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/tickets/by-key/ABC-1"), json_response(500, raw={"message": "boom"}))
 
-    assert "version must not be empty" in await call_error(client, "mark_deployed", version=" ", keys=["ABC-1"])
-    assert await call(client, "mark_deployed", version="1.0.0", keys=[]) == "(no tickets)"
+    assert "version이 비어 있음" in await call_error(client, "mark_deployed", version=" ", keys=["ABC-1"])
+    assert await call(client, "mark_deployed", version="1.0.0", keys=[]) == "(티켓 없음)"
     too_many = [f"ABC-{i}" for i in range(51)]
-    assert "at most 50" in await call_error(client, "mark_deployed", version="1.0.0", keys=too_many)
+    assert "최대 50개" in await call_error(client, "mark_deployed", version="1.0.0", keys=too_many)
     assert "HTTP 500: boom" in await call_error(client, "mark_deployed", version="1.0.0", keys=["ABC-1"])
 
 
@@ -490,10 +490,10 @@ async def test_create_ticket_follow_up_failure_lists_skipped_steps(client, fake)
         await call(client, "create_ticket", project_key="ABC", title="x", follows="ABC-1,ABC-2", status="review"),
         "ticket write",
     )
-    assert text.startswith("Created: ABC-46")
-    assert "Created ABC-46, but linking follows ABC-2 failed:\nHTTP 409: relation_cycle" in text
-    assert text.endswith("Skipped: re-reading the ticket, setting status review")
-    assert "at most 20" in await call_error(
+    assert text.startswith("티켓 생성: ABC-46")
+    assert "ABC-46 생성됨, 그러나 follows ABC-2 연결 실패:\nHTTP 409: relation_cycle" in text
+    assert text.endswith("건너뜀: 티켓 다시 읽기, 상태 review로 변경")
+    assert "최대 20개" in await call_error(
         client, "create_ticket", project_key="ABC", follows=",".join(f"ABC-{i}" for i in range(21))
     )
 
@@ -516,5 +516,5 @@ async def test_create_ticket_slow_follow_up_still_returns_the_key(client, fake, 
 
     monkeypatch.setattr(client, "get_ticket_by_key", slow_get)
     text = unfence(await call(client, "create_ticket", project_key="ABC", title="x"), "ticket write")
-    assert text.startswith("Created: ABC-47")
-    assert "but re-reading the ticket failed:\nTimeoutError" in text
+    assert text.startswith("티켓 생성: ABC-47")
+    assert "그러나 티켓 다시 읽기 실패:\nTimeoutError" in text

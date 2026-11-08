@@ -20,6 +20,17 @@ def untrusted(source: str, text: str) -> str:
     return f'<{tag} source="{label}">\n{text}\n</{tag}>'
 
 
+def truncate(text: str, limit: int) -> str:
+    """`text` cut to `limit` chars; untrusted fences opened in the kept part are closed, so the
+    cut never leaves workspace content outside its fence."""
+    if len(text) <= limit:
+        return text
+    head = text[:limit]
+    tags = re.findall(rf"<({UNTRUSTED_TAG}-[0-9a-f]{{8}}) ", head)
+    closing = "".join(f"\n</{t}>" for t in reversed(tags) if f"</{t}>" not in head)
+    return f"{head}{closing}\n… 잘림 (전체 {len(text)}자)"
+
+
 def wire_field(row: dict, name: str, default: Any = None) -> Any:
     """REST uses camelCase; accept old snake_case fixtures/servers without losing 0/False."""
     first, *rest = name.split("_")
@@ -189,10 +200,10 @@ def render_wiki_tree(pages: list[dict]) -> str:
 
 
 def render_wiki_page(page: dict) -> str:
-    header = f"# {page.get('title')}\n\n- id: {page.get('id')} · type: {wire_field(page, 'page_type')}"
+    header = f"# {page.get('title')}\n\n- id: {page.get('id')} · 유형: {wire_field(page, 'page_type')}"
     if wire_field(page, "meeting_id"):
-        header += f" · meeting: {wire_field(page, 'meeting_id')}"
-    header += f" · updated: {wire_field(page, 'updated_at')}"
+        header += f" · 회의: {wire_field(page, 'meeting_id')}"
+    header += f" · 수정: {wire_field(page, 'updated_at')}"
     body = (wire_field(page, "plain_text") or "").strip()
     return f"{header}\n\n{body if body else '(본문 없음)'}"
 
@@ -250,11 +261,11 @@ def handoff_line(handoff: dict) -> str:
     blockers = wire_field(handoff, "blocked_by") or []
     if blockers:
         names = [
-            f"manual ({b.get('reason') or '-'})" if b.get("manual") else str(b.get("key"))
+            f"수동 ({b.get('reason') or '-'})" if b.get("manual") else str(b.get("key"))
             for b in blockers
             if isinstance(b, dict)
         ]
-        tail.append("blocked by " + ", ".join(names))
+        tail.append("기다리는 중 " + ", ".join(names))
     return f"- {key} · {state} · {role} · {trigger} — {summary}  ({'; '.join(tail)})"
 
 
@@ -484,7 +495,7 @@ def doc_update_line(row: dict) -> str:
     meeting = wire_field(row, "meeting_title")
     return (
         f"- [{row.get('state')}] {row.get('op')} @ {wire_field(row, 'anchor_heading') or '-'}: {text or '(내용 없음)'}"
-        f" (id {row.get('id')}, page {wire_field(row, 'page_id')}" + (f", 회의 {meeting}" if meeting else "") + ")"
+        f" (id {row.get('id')}, 페이지 {wire_field(row, 'page_id')}" + (f", 회의 {meeting}" if meeting else "") + ")"
     )
 
 

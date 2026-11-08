@@ -12,6 +12,7 @@
 | Rules        | `SLASH_PRO_WORKSPACE_RULES=0` skips the workspace rules page |
 | Custom host  | `SLASH_PRO_ALLOW_CUSTOM_API=<host>` allows exactly that API  |
 |              | host besides `echo-api.slash.pro`, loopback included         |
+| Tool groups  | `SLASH_PRO_TOOLS=tickets,wiki` registers only those groups   |
 
 The token is never logged, printed or included in `repr`. A custom API host (development /
 self-hosting only, loopback included) accepts only a literal `SLASH_PRO_TOKEN`; no token file is
@@ -32,6 +33,20 @@ DEFAULT_TOKEN_FILE = "~/.config/slash-pro/token"
 LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
 OFFICIAL_API_HOSTS = ("echo-api.slash.pro",)
 MAX_TOKEN_FILE_BYTES = 8192
+# `SLASH_PRO_TOOLS` names; server.GROUPS maps each to its register function.
+TOOL_GROUPS = (
+    "projects",
+    "tickets",
+    "ticket_extras",
+    "questions",
+    "meetings",
+    "meeting_agenda",
+    "wiki",
+    "doc_updates",
+    "prds",
+    "outcomes",
+    "search",
+)
 # scheme://host[:port][/path] — lowercase ASCII host or bracketed IPv6, plain path, nothing else
 # (no userinfo, query, fragment, backslash, `;`, spaces or non-ASCII/IDN).
 _API_URL = re.compile(
@@ -56,6 +71,8 @@ class SlashConfig:
     agent: str | None = None
     # Load the workspace's agent-instructions page into the server instructions.
     workspace_rules: bool = True
+    # Tool groups to register (`TOOL_GROUPS` names); None = all.
+    tools: frozenset[str] | None = None
 
 
 def _shown(url: str) -> str:
@@ -99,6 +116,19 @@ def check_api_url(raw: str, *, allow_custom: str = "") -> tuple[str, bool]:
                 "this host (and give the token as a literal SLASH_PRO_TOKEN) if you really mean it"
             )
     return url, custom
+
+
+def check_tool_groups(raw: str) -> frozenset[str] | None:
+    """`"tickets, wiki"` → those groups; empty or `all` → None (every group)."""
+    names = {n.strip().lower() for n in raw.split(",") if n.strip()}
+    if not names or "all" in names:
+        return None
+    unknown = sorted(names - set(TOOL_GROUPS))
+    if unknown:
+        raise ConfigError(
+            f"unknown SLASH_PRO_TOOLS group: {', '.join(unknown)[:200]} (allowed: {', '.join(TOOL_GROUPS)})"
+        )
+    return frozenset(names)
 
 
 def check_workspace_id(raw: str) -> str:
@@ -181,5 +211,6 @@ def load_config(environ: dict[str, str] | None = None) -> SlashConfig:
         requested_by=get("SLASH_PRO_REQUESTED_BY") or None,
         model_id=get("SLASH_PRO_AGENT_MODEL") or None,
         agent=get("SLASH_PRO_AGENT") or None,
+        tools=check_tool_groups(get("SLASH_PRO_TOOLS")),
         workspace_rules=(env.get("SLASH_PRO_WORKSPACE_RULES") or "").strip().lower() not in ("0", "false", "no", "off"),
     )

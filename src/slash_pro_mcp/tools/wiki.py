@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 
@@ -34,8 +34,8 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def get_wiki_page(page_id: str, markdown: bool = False) -> str:
-        """A wiki page with its plain-text body. markdown=True returns only the body as markdown (tables,
-        checkboxes), in the form write_wiki_page accepts."""
+        """A wiki page with its plain-text body. markdown=True: only the body as markdown (the form
+        write_wiki_page accepts)."""
         page_id = path_segment(page_id, "page_id")
         if markdown:
             text = await client.get_text(f"/wiki/pages/{page_id}", params={"format": "markdown"})
@@ -46,40 +46,39 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def search_wiki(text: str, project_key: str | None = None, page_id: str | None = None) -> str:
-        """Find text in the wiki (case-insensitive) and show matching lines. page_id: within one page;
-        project_key: the project's pages whose title or body contains it (found by the server; the first
-        20 are read)."""
+        """Case-insensitive text search showing matching lines: in one page (page_id) or a project's pages
+        (project_key; the first 20 matching pages are read)."""
         text = text.strip()[:200]
         if not text:
-            raise ValueError("text must not be empty")
+            raise ValueError("text가 비어 있음")
         if page_id:
             page = await client.get_data(f"/wiki/pages/{path_segment(page_id, 'page_id')}")
             return render.untrusted("wiki search", render.render_wiki_search(text, [page]))
         if not project_key:
-            raise ValueError("project_key or page_id is required")
+            raise ValueError("project_key나 page_id가 필요함")
         project = await client.resolve_project(project_key)
         # `q` filters the tree on the server (ids and titles only); bodies are read page by page.
         found = await client.get_data(f"/projects/{path_segment(project['id'])}/wiki/tree", params={"q": text}) or []
         pages = [await client.get_data(f"/wiki/pages/{path_segment(p['id'])}") for p in found[:MAX_SEARCH_PAGES]]
         out = render.render_wiki_search(text, pages)
         if len(found) > MAX_SEARCH_PAGES:
-            out += f"\n\n… {len(found) - MAX_SEARCH_PAGES} more matching pages not shown; narrow the text"
+            out += f"\n\n… 일치하는 페이지 {len(found) - MAX_SEARCH_PAGES}개 더 있음(표시 안 함): text를 좁히기"
         return render.untrusted("wiki search", out)
 
     @mcp.tool(structured_output=False, annotations=DESTRUCTIVE)
     @tool_errors
     async def write_wiki_page(page_id: str, markdown: str, mode: str = "append", source: str | None = None) -> str:
-        """Write markdown to a wiki page body. mode=append (default) or replace (overwrites the body).
-        source adds a `> 출처: <source> · <date>` (source) block in front. The workspace rules page is refused."""
+        """Write markdown to a page body. mode: append|replace (replace overwrites the whole body). source prepends a `> 출처:` block.
+        The workspace rules page is refused."""
         mode = check_choice("mode", mode, ("append", "replace"))
         if not markdown.strip():
-            raise ValueError("markdown must not be empty")
+            raise ValueError("markdown이 비어 있음")
         body: dict[str, Any] = {"format": "markdown", "content": markdown, "mode": mode}
         if source:
             body["source"] = source
         response = await client.request("PUT", f"/wiki/pages/{await client.writable_page(page_id)}/content", json=body)
         page = response.data or {}
-        return render.untrusted("wiki write", f"Wiki {mode}: {page.get('title', page_id)} `{page.get('id', page_id)}`")
+        return render.untrusted("wiki write", f"위키 {mode}: {page.get('title', page_id)} `{page.get('id', page_id)}`")
 
     @mcp.tool(structured_output=False, annotations=DESTRUCTIVE)
     @tool_errors
@@ -90,16 +89,14 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         markdown: str,
         source: str | None = None,
     ) -> str:
-        """Create a wiki page with a markdown body (tables, `- [ ]` checkboxes, headings) under a section
-        root. section: product|feature-specs|technical-docs|decisions|notes|perspectives (meetings is
-        refused by the server). product is the project's single product strategy page (created if missing,
-        title fixed, title ignored): the body replaces a skeleton-only page and is appended when people
-        have written in it. PRDs: create_prd."""
+        """Create a markdown page under a section root: product|feature-specs|technical-docs|decisions|
+        notes|perspectives. product is the project's single strategy page (title ignored): the body replaces a skeleton-only
+        page, else is appended. PRDs: create_prd."""
         section = check_choice("section", section, tuple(WIKI_SECTIONS))
         if not title.strip():
-            raise ValueError("title must not be empty")
+            raise ValueError("title이 비어 있음")
         if not markdown.strip():
-            raise ValueError("markdown must not be empty")
+            raise ValueError("markdown이 비어 있음")
         project = await client.resolve_project(project_key)
         pid = path_segment(project["id"])
         body_extra: dict[str, Any] = {"source": source} if source else {}
@@ -116,7 +113,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
                     raise
                 await client.request("PUT", f"/wiki/pages/{page_id}/content", json={**payload, "mode": "append"})
             return render.untrusted(
-                "wiki write", f"Product strategy page written: {page.get('title', title.strip())} `{page_id}`"
+                "wiki write", f"제품 전략 페이지 작성: {page.get('title', title.strip())} `{page_id}`"
             )
         await client.request("POST", f"/projects/{pid}/wiki/ensure-roots")
         tree = await client.get_data(f"/projects/{pid}/wiki/tree") or []
@@ -126,7 +123,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
             None,
         )
         if root is None:
-            raise ValueError(f"section root not found: {section}")
+            raise ValueError(f"섹션 루트 없음: {section}")
         created = (
             await client.request(
                 "POST",
@@ -141,7 +138,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
             )
         ).data
         return render.untrusted(
-            "wiki write", f"Wiki page created: {created.get('title', title)} `{created['id']}` ({section})"
+            "wiki write", f"위키 페이지 생성: {created.get('title', title)} `{created['id']}` ({section})"
         )
 
 
@@ -156,8 +153,8 @@ def register_doc_updates(mcp: FastMCP, client: SlashClient) -> None:
         rows = await client.get_data(f"/wiki/pages/{page}/doc-updates") or []
         if not any(str(r.get("id")).lower() == update.lower() for r in rows):
             raise ValueError(
-                f"Update {update} is not among the latest 200 updates of page {page} "
-                "(check page_id with list_doc_updates; older updates: web app)"
+                f"업데이트 {update}: 페이지 {page}의 최근 200개 업데이트에 없음 "
+                "(list_doc_updates로 page_id 확인, 더 오래된 것은 웹 앱에서)"
             )
         return update, page
 
@@ -168,11 +165,10 @@ def register_doc_updates(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def list_doc_updates(page_id: str | None = None, meeting_id: str | None = None) -> str:
-        """AI doc updates produced from meetings, for one page (page_id) or by one meeting (meeting_id;
-        needs wiki:read and meetings:read). One line each: `[state] op @ heading: new content (id …, page …)`;
-        state is proposed, applied, etc."""
+        """AI doc updates from meetings, for one page_id or one meeting_id (exactly one; meeting_id needs
+        wiki:read and meetings:read)."""
         if bool(page_id) == bool(meeting_id):
-            raise ValueError("pass exactly one of page_id and meeting_id")
+            raise ValueError("page_id와 meeting_id 중 하나만 지정")
         if page_id:
             path = f"/wiki/pages/{path_segment(page_id, 'page_id')}/doc-updates"
         else:
@@ -182,45 +178,29 @@ def register_doc_updates(mcp: FastMCP, client: SlashClient) -> None:
 
     @mcp.tool(structured_output=False, annotations=DESTRUCTIVE)
     @tool_errors
-    async def accept_doc_update(update_id: str, page_id: str) -> str:
-        """Accept one AI doc update: a proposed one is inserted into the page, an applied one keeps its
-        content and loses the marker. page_id: the update's page (from list_doc_updates)."""
+    async def resolve_doc_update(update_id: str, page_id: str, action: Literal["accept", "revert", "reject"]) -> str:
+        """accept: insert a proposed update or unmark an applied one. revert: remove an applied one.
+        reject: drop a proposed one. page_id: the update's page (list_doc_updates)."""
         update, _ = await page_of(update_id, page_id)
-        return await act(update, "accept")
-
-    @mcp.tool(structured_output=False, annotations=DESTRUCTIVE)
-    @tool_errors
-    async def revert_doc_update(update_id: str, page_id: str) -> str:
-        """Remove one applied AI doc update from its page. page_id: the update's page."""
-        update, _ = await page_of(update_id, page_id)
-        return await act(update, "revert")
-
-    @mcp.tool(structured_output=False, annotations=DESTRUCTIVE)
-    @tool_errors
-    async def reject_doc_update(update_id: str, page_id: str) -> str:
-        """Reject one proposed AI doc update (the page is unchanged). page_id: the update's page."""
-        update, _ = await page_of(update_id, page_id)
-        return await act(update, "reject")
+        return await act(update, action)
 
     @mcp.tool(structured_output=False, annotations=WRITE_IDEMPOTENT)
     @tool_errors
     async def refresh_doc_update(update_id: str) -> str:
-        """Re-check a proposal against the latest page (position, duplicates): its content is refreshed,
-        or 409 duplicate|revoked."""
+        """Re-check a proposal against the latest page: content refreshed, or 409 duplicate|revoked."""
         return await act(path_segment(update_id, "update_id"), "refresh")
 
     @mcp.tool(structured_output=False, annotations=DESTRUCTIVE_IDEMPOTENT)
     @tool_errors
     async def accept_all_doc_updates(page_id: str) -> str:
-        """Accept every AI doc update of one page (applied ones lose the marker, proposed ones are added to
-        the page). The workspace rules page is refused."""
+        """Accept every AI doc update of a page. The workspace rules page is refused."""
         page = await client.writable_page(page_id)
         response = await client.request("POST", f"/wiki/pages/{page}/doc-updates/accept-all")
         try:
             skipped = json.loads(response.text).get("skipped") or []
         except (ValueError, AttributeError):
             skipped = []
-        lines = [f"Accepted {len(response.data or [])}, skipped {len(skipped)}"]
+        lines = [f"수락 {len(response.data or [])}개, 건너뜀 {len(skipped)}개"]
         lines += [render.doc_update_line(r) for r in response.data or []]
-        lines += [f"- skipped {s.get('id')}: {s.get('code')}" for s in skipped if isinstance(s, dict)]
+        lines += [f"- 건너뜀 {s.get('id')}: {s.get('code')}" for s in skipped if isinstance(s, dict)]
         return render.untrusted("doc updates", "\n".join(lines))

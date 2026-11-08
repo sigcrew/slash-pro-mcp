@@ -44,8 +44,8 @@ async def test_series_title_finds_next_occurrence_then_posts(client: SlashClient
     post = fake.calls_to("POST", ws_path("/events/[^/]+/agenda-questions"))[0]
     assert post.path == ws_path("/events/scrum_20261015T010000Z/agenda-questions")
     assert post.body == {"text": "철수님 요청", "evidence": "10/12 회의", "projectKey": "ABC"}
-    assert text.startswith("Agenda line added: 데일리 스크럼 2026-10-15T10:00:00+09:00 — 철수님 요청")
-    assert "scheduled meeting row created" in text
+    assert text.startswith("안건 추가: 데일리 스크럼 2026-10-15T10:00:00+09:00 — 철수님 요청")
+    assert "예정 회의 생성" in text
 
 
 async def test_event_id_posts_directly_and_reports_duplicate(client: SlashClient, fake: FakeSlash):
@@ -58,12 +58,12 @@ async def test_event_id_posts_directly_and_reports_duplicate(client: SlashClient
     assert fake.calls_to("GET", ws_path("/meeting-series/next-occurrence")) == []
     post = fake.calls_to("POST", ws_path("/events/evt_1/agenda-questions"))[0]
     assert post.body == {"text": "같은 안건", "ticketKey": "ABC-3"}
-    assert text.startswith("Already on the agenda: event evt_1 — 같은 안건")
+    assert text.startswith("이미 안건에 있음: 이벤트 evt_1 — 같은 안건")
 
 
 async def test_needs_exactly_one_of_title_or_event_and_surfaces_server_errors(client: SlashClient, fake: FakeSlash):
-    assert "exactly one of" in await call_error(client, "add_agenda_item", text="x")
-    assert "exactly one of" in await call_error(client, "add_agenda_item", text="x", event_id="e", series_title="t")
+    assert "하나만 지정" in await call_error(client, "add_agenda_item", text="x")
+    assert "하나만 지정" in await call_error(client, "add_agenda_item", text="x", event_id="e", series_title="t")
     fake.on(
         "POST",
         ws_path("/events/[^/]+/agenda-questions"),

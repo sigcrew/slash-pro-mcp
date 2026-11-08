@@ -22,7 +22,7 @@ async def test_wiki_body_and_body_only_search_from_camelcase(client, fake):
     fake.on("GET", ws_path("/wiki/pages/page"), json_response(200, PAGE))
     text = await call_untrusted(client, "get_wiki_page", page_id="page")
     assert "출처: 팀장\n본문 검색어" in text
-    assert "type: general · meeting: meeting · updated: 2026-09-19" in text
+    assert "유형: general · 회의: meeting · 수정: 2026-09-19" in text
     assert "L2: 본문 검색어" in await call(client, "search_wiki", page_id="page", text="검색어")
 
 

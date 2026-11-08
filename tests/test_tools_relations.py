@@ -22,7 +22,7 @@ async def test_relate_ticket_posts_and_renders(client, fake):
     by_key(fake, "ABC-2", ticket(2, "todo"))
     fake.on("POST", ws_path("/tickets/t-2/relations"), json_response(201, RELATION))
     text = await call_untrusted(client, "relate_ticket", key="abc-2", kind="follows", target_key="ABC-1")
-    assert text == "Relation added: ABC-2 follows ABC-1"
+    assert text == "관계 추가: ABC-2 follows ABC-1"
     (post,) = fake.calls_to("POST", ".*")
     assert post.body == {"kind": "follows", "targetKey": "ABC-1", "reverse": False}
 
@@ -35,7 +35,7 @@ async def test_relate_ticket_existing_200_and_reverse(client, fake):
         json_response(200, {**RELATION, "kind": "blocks", "from": RELATION["to"], "to": RELATION["from"]}),
     )
     text = await call_untrusted(client, "relate_ticket", key="ABC-2", kind="blocks", target_key="ABC-1", reverse=True)
-    assert text == "Already exists: ABC-1 blocks ABC-2"
+    assert text == "이미 있음: ABC-1 blocks ABC-2"
     (post,) = fake.calls_to("POST", ".*")
     assert post.body == {"kind": "blocks", "targetKey": "ABC-1", "reverse": True}
 
@@ -59,7 +59,7 @@ async def test_create_ticket_with_follows_and_builder(client, fake):
     fake.on("POST", ws_path("/projects/p-demo/tickets"), json_response(201, ticket(41, "todo")))
     by_key(fake, "ABC-41", ticket(41, "todo"))
     text = await call(client, "create_ticket", project_key="abc", follows="abc-1", request_builder=True)
-    assert unfence(text, "ticket write").startswith("Created: ABC-41")
+    assert unfence(text, "ticket write").startswith("티켓 생성: ABC-41")
     (post,) = fake.calls_to("POST", ".*")
     assert post.body == {"priority": "medium", "followsTicketId": "t-1", "requestBuilder": True}
 
@@ -93,8 +93,8 @@ async def test_relate_follows_reports_available_rejected_without_consent(client,
         json_response(201, {**RELATION, "rejectedAvailable": 2, "rejectedTaken": 0, "warnings": []}),
     )
     text = await call(client, "relate_ticket", key="ABC-2", kind="follows", target_key="ABC-1")
-    assert "Relation added: ABC-2 follows ABC-1" in text
-    assert "2 rejected (✗) row(s) can be copied" in text and "take_rejected=True" in text
+    assert "관계 추가: ABC-2 follows ABC-1" in text
+    assert "✗ 항목 2개 복사 가능" in text and "take_rejected=True" in text
     (post,) = fake.calls_to("POST", ".*")
     assert "takeRejected" not in post.body  # 동의 없이는 보내지 않는다
 
@@ -107,7 +107,7 @@ async def test_relate_follows_take_rejected_sends_consent_and_reports(client, fa
         json_response(201, {**RELATION, "rejectedAvailable": 0, "rejectedTaken": 2, "warnings": []}),
     )
     text = await call(client, "relate_ticket", key="ABC-2", kind="follows", target_key="ABC-1", take_rejected=True)
-    assert "Copied 2 rejected (✗) row(s) from ABC-1" in text
+    assert "ABC-1에서 ✗ 항목 2개 복사" in text
     (post,) = fake.calls_to("POST", ".*")
     assert post.body["takeRejected"] is True
 
@@ -127,7 +127,7 @@ async def test_relate_blocks_prints_server_warnings(client, fake):
         ),
     )
     text = await call(client, "relate_ticket", key="ABC-2", kind="blocks", target_key="ABC-1")
-    assert "Warning: ABC-1는 이미 review 상태예요" in text
+    assert "경고: ABC-1는 이미 review 상태예요" in text
 
 
 async def test_create_ticket_with_several_origins_relates_the_rest(client, fake):
@@ -145,8 +145,8 @@ async def test_create_ticket_with_several_origins_relates_the_rest(client, fake)
         json_response(201, {**RELATION, "from": {**RELATION["from"], "key": "ABC-43"}, "rejectedAvailable": 1}),
     )
     text = await call(client, "create_ticket", project_key="abc", title="보완", follows="abc-1, abc-9")
-    assert unfence(text, "ticket write").startswith("Created: ABC-43")
-    assert "1 rejected (✗) row(s) can be copied" in text
+    assert unfence(text, "ticket write").startswith("티켓 생성: ABC-43")
+    assert "✗ 항목 1개 복사 가능" in text
     first, second = fake.calls_to("POST", ".*")
     assert first.body["followsTicketId"] == "t-1"
     assert second.body == {"kind": "follows", "targetKey": "ABC-9"}
@@ -174,5 +174,5 @@ async def test_create_ticket_prints_server_warning_header(client, fake):
     )
     by_key(fake, "ABC-44", ticket(44, "todo"))
     text = await call(client, "create_ticket", project_key="abc", title="새 일")
-    assert unfence(text, "ticket write").startswith("Created: ABC-44")
-    assert f"Warning: {warning}" in text
+    assert unfence(text, "ticket write").startswith("티켓 생성: ABC-44")
+    assert f"경고: {warning}" in text

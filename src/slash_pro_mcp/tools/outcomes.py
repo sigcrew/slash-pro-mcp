@@ -27,7 +27,7 @@ async def resolve_outcome(client: SlashClient, ref: str) -> str:
         pass
     found = await client.get_data(f"/keys/{path_segment(raw.upper(), 'outcome key')}")
     if not isinstance(found, dict) or found.get("kind") != "outcome":
-        raise ValueError(f"{raw.upper()[:40]} is not an outcome key")
+        raise ValueError(f"{raw.upper()[:40]}: 아웃컴 키가 아님")
     return path_segment(found["id"])
 
 
@@ -46,8 +46,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def list_outcomes(project_key: str) -> str:
-        """A project's outcomes (desired user changes), recently updated first. One line each:
-        `KEY · stage · result — title (tickets n)`."""
+        """A project's outcomes (desired user changes), recently updated first."""
         project = await client.resolve_project(project_key)
         rows = await client.get_data(f"/projects/{path_segment(project['id'])}/outcomes") or []
         return render.untrusted("outcome list", render.render_outcome_list(list(rows)))
@@ -55,8 +54,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def get_outcome(outcome: str) -> str:
-        """One outcome: stage, revision, dates, description, scope, verification method, member tickets,
-        evidence, judgements. outcome: key (e.g. CORE-45) or id."""
+        """One outcome with its tickets, evidence and judgements. outcome: key (e.g. CORE-45) or id."""
         return render.untrusted("outcome", render.render_outcome(await fetch_outcome(client, outcome)))
 
     @mcp.tool(structured_output=False, annotations=WRITE)
@@ -71,13 +69,13 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         start_date: str | None = None,
         target_date: str | None = None,
     ) -> str:
-        """Create an outcome. title: the desired user change. stage: draft (default)|executing|paused.
-        start_date / target_date: YYYY-MM-DD. Stage changes and judgements are for people (web app)."""
+        """Create an outcome; title: the desired user change. stage: draft|executing|paused.
+        Dates: YYYY-MM-DD. Stage changes and judgements: web app."""
         if not title.strip():
-            raise ValueError("title must not be empty")
+            raise ValueError("title이 비어 있음")
         stage = stage.strip().lower()
         if stage not in CREATE_STAGES:
-            raise ValueError(f"unknown stage: {stage[:40]} (allowed: {', '.join(CREATE_STAGES)})")
+            raise ValueError(f"알 수 없는 stage: {stage[:40]} (허용: {', '.join(CREATE_STAGES)})")
         project = await client.resolve_project(project_key)
         body: dict[str, Any] = {"title": title.strip(), "stage": stage}
         for name, value in (
@@ -92,7 +90,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
             await client.request("POST", f"/projects/{path_segment(project['id'])}/outcomes", json=body)
         ).data or {}
         return render.untrusted(
-            "outcome", f"Outcome created: {created.get('key')} — {created.get('title')} (id {created.get('id')})"
+            "outcome", f"아웃컴 생성: {created.get('key')} — {created.get('title')} (id {created.get('id')})"
         )
 
     @mcp.tool(structured_output=False, annotations=DESTRUCTIVE_IDEMPOTENT)
@@ -108,14 +106,13 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         start_date: str | None = None,
         target_date: str | None = None,
     ) -> str:
-        """Change outcome fields (only those given). Sends the current revision; if the outcome changed in
-        between the server returns 409, so re-read with get_outcome and retry. Pass "" to clear a text field;
-        dates cannot be cleared here. Stage is changed by people."""
+        """Change the given outcome fields; "" clears a text field (dates cannot be cleared). 409 if it
+        changed meanwhile: re-read with get_outcome and retry. Stage: web app."""
         current = await fetch_outcome(client, outcome)
         body: dict[str, Any] = {"expectedRevision": current["revision"]}
         if title is not None:
             if not title.strip():
-                raise ValueError("title must not be empty")
+                raise ValueError("title이 비어 있음")
             body["title"] = title.strip()
         for name, value in (
             ("description", description),
@@ -128,11 +125,11 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
                 body[name] = value
         _dates(body, start_date, target_date)
         if len(body) == 1:
-            raise ValueError("pass at least one field to change")
+            raise ValueError("바꿀 필드를 하나 이상 지정")
         updated = (await client.request("PATCH", f"/outcomes/{path_segment(current['id'])}", json=body)).data or {}
         return render.untrusted(
             "outcome",
-            f"Outcome updated: {updated.get('key')} — {updated.get('title')} (revision {updated.get('revision')})",
+            f"아웃컴 수정: {updated.get('key')} — {updated.get('title')} (revision {updated.get('revision')})",
         )
 
     @mcp.tool(structured_output=False, annotations=WRITE)
@@ -140,21 +137,21 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     async def add_outcome_evidence(
         outcome: str, body: str, url: str | None = None, meeting_id: str | None = None
     ) -> str:
-        """Add one piece of evidence (observation, metric, user reaction) to an outcome. url (https only)
-        and meeting_id (the meeting it came from) are optional. Judgements are made by people."""
+        """Add evidence (observation, metric, user reaction) to an outcome. url: https only.
+        meeting_id: the source meeting."""
         if not body.strip():
-            raise ValueError("body must not be empty")
+            raise ValueError("body가 비어 있음")
         payload: dict[str, Any] = {"body": body}
         if url and url.strip():
             parts = urlsplit(url.strip())
             if parts.scheme != "https" or not parts.netloc:
-                raise ValueError("url must be an https:// URL")
+                raise ValueError("url은 https:// URL이어야 함")
             payload["url"] = url.strip()
         if meeting_id and meeting_id.strip():
             payload["sourceMeetingId"] = path_segment(meeting_id, "meeting_id")
         oid = await resolve_outcome(client, outcome)
         out = (await client.request("POST", f"/outcomes/{oid}/evidence", json=payload)).data or {}
-        return render.untrusted("outcome", f"Evidence added: {out.get('key')} ({len(out.get('evidence') or [])} items)")
+        return render.untrusted("outcome", f"근거 추가: {out.get('key')} (근거 {len(out.get('evidence') or [])}개)")
 
     async def membership(outcome: str, ticket_key: str, *, remove: bool, move: bool, confirm_prd: bool) -> str:
         current = await fetch_outcome(client, outcome)
@@ -172,12 +169,12 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
             json=body,
         )
         out = res.data or {}
-        verb = "removed from" if remove else "added to"
+        verb = "에서 뺌" if remove else "에 넣음"
         move = out.get("move")
-        moved = f" (moved from {move.get('fromOutcomeId')})" if isinstance(move, dict) else ""
+        moved = f" ({move.get('fromOutcomeId')}에서 이동)" if isinstance(move, dict) else ""
         return render.untrusted(
             "outcome",
-            f"{ticket_key.strip().upper()} {verb} outcome {current.get('key')}{moved} (revision {out.get('revision')})",
+            f"{ticket_key.strip().upper()}: 아웃컴 {current.get('key')}{verb}{moved} (revision {out.get('revision')})",
         )
 
     @mcp.tool(structured_output=False, annotations=WRITE_IDEMPOTENT)
@@ -185,13 +182,13 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     async def add_ticket_to_outcome(
         outcome: str, ticket_key: str, move: bool = False, confirm_leaves_legacy_prd: bool = False
     ) -> str:
-        """Make a ticket a member of an outcome (same project only; needs tickets:read, tickets:write and
-        wiki:read). A ticket in another outcome gives 409 ticket_in_other_outcome; move=True moves it.
-        Leaving an outcome inherited from a PRD needs confirm_leaves_legacy_prd=True (409 leaves_legacy_prd)."""
+        """Add a ticket to an outcome (same project; needs tickets:read, tickets:write, wiki:read).
+        A ticket in another outcome gives 409 ticket_in_other_outcome unless move=True. Leaving a PRD-inherited outcome
+        needs confirm_leaves_legacy_prd=True."""
         return await membership(outcome, ticket_key, remove=False, move=move, confirm_prd=confirm_leaves_legacy_prd)
 
     @mcp.tool(structured_output=False, annotations=DESTRUCTIVE_IDEMPOTENT)
     @tool_errors
     async def remove_ticket_from_outcome(outcome: str, ticket_key: str) -> str:
-        """Remove a ticket from an outcome it belongs to (needs the same scopes as add_ticket_to_outcome)."""
+        """Remove a ticket from an outcome (same scopes as add_ticket_to_outcome)."""
         return await membership(outcome, ticket_key, remove=True, move=False, confirm_prd=False)

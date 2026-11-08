@@ -25,22 +25,20 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         sort: str = "relevance",
         limit: int = 8,
     ) -> str:
-        """Workspace search over titles, bodies, transcripts and decisions; results contain every word.
-        Needs wiki:read (plus the read scope of each kind to see its results).
-        kinds: any of ticket|outcome|doc|meeting (default all; kinds the token cannot read are dropped).
-        date_from / date_to: YYYY-MM-DD (Korea time) or ISO datetime. sort: relevance|recent.
-        limit: 1-30 per kind (default 8)."""
+        """Workspace search over titles, bodies, transcripts and decisions; every word must match. Needs wiki:read
+        plus each kind's read scope. kinds: ticket|outcome|doc|meeting (default all). date_from / date_to: YYYY-MM-DD (KST)
+        or ISO datetime. sort: relevance|recent. limit: max 30 per kind."""
         if not query.strip():
-            raise ValueError("query must not be empty")
+            raise ValueError("query가 비어 있음")
         params: dict[str, Any] = {"q": query.strip()[:200], "limit": max(1, min(int(limit), 30))}
         sort = sort.strip().lower()
         if sort not in ("relevance", "recent"):
-            raise ValueError("sort must be relevance or recent")
+            raise ValueError("sort는 relevance나 recent")
         params["sort"] = sort
         wanted = [k.strip().lower() for k in kinds or [] if k.strip()]
         unknown = [k for k in wanted if k not in SEARCH_KINDS]
         if unknown:
-            raise ValueError(f"unknown kind: {', '.join(unknown)} (allowed: {', '.join(SEARCH_KINDS)})")
+            raise ValueError(f"알 수 없는 kind: {', '.join(unknown)} (허용: {', '.join(SEARCH_KINDS)})")
         if wanted:
             params["kind"] = wanted
         if project_key:

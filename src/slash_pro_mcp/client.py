@@ -34,6 +34,7 @@ DEFAULT_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 REQUEST_DEADLINE_SECONDS = 60
 MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 RULES_PATH = "/wiki/agent-instructions"
+RULES_PAGE_REFUSED = "이 페이지는 웹 앱에서 사람만 고칠 수 있음"
 _RAW_BODY_PREVIEW = 300
 MAX_ERROR_MESSAGE = 2000
 MAX_SHOWN_ID = 40
@@ -51,8 +52,8 @@ def path_segment(value: object, name: str | None = None) -> str:
     text = str(value).strip()
     if not _SEGMENT.fullmatch(text):
         if name is None:
-            raise ValueError("the server returned an invalid id")
-        raise ValueError(f"invalid {name}: {text[:80]!r}")
+            raise ValueError("서버가 잘못된 id를 돌려줌")
+        raise ValueError(f"잘못된 {name}: {text[:80]!r}")
     return quote(text, safe="")
 
 
@@ -116,9 +117,9 @@ class SlashApiError(Exception):
             lines.append(f"code: {self.code}")
         lines.extend(self.errors)
         if self.candidates:
-            lines.append("candidates: " + ", ".join(self.candidates[:MAX_CANDIDATES]))
+            lines.append("후보: " + ", ".join(self.candidates[:MAX_CANDIDATES]))
         if self.status == 401:
-            lines.append("The token may have expired (90 days) or been revoked; issue a new one in the web app.")
+            lines.append("토큰이 만료(90일)됐거나 폐기됐을 수 있음: 웹 앱에서 새로 발급")
         return "\n".join(lines)
 
 
@@ -163,7 +164,7 @@ def parse_error(status: int, text: str, etag: str | None = None) -> SlashApiErro
     code: str | None = None
     candidates: list[str] = []
     if not isinstance(payload, dict):
-        message = (text or "Request failed")[:_RAW_BODY_PREVIEW]
+        message = (text or "요청 실패")[:_RAW_BODY_PREVIEW]
         errors: list[str] = []
     else:
         if isinstance(payload.get("code"), str):
@@ -173,7 +174,7 @@ def parse_error(status: int, text: str, etag: str | None = None) -> SlashApiErro
         message = payload.get("message")
         if not message:
             detail = payload.get("detail")
-            message = detail if isinstance(detail, str) else "Request failed"
+            message = detail if isinstance(detail, str) else "요청 실패"
         errors = [line[:MAX_ERROR_LINE] for line in _error_lines(payload)[:MAX_ERROR_LINES]]
         message = str(message)[:MAX_ERROR_MESSAGE]
     if status == 409 and message == "version_conflict":
@@ -185,16 +186,16 @@ async def _read_capped(response: httpx.Response) -> bytes:
     encoding = response.headers.get("Content-Encoding", "").strip().lower()
     if encoding not in ("", "identity"):
         # We ask for `identity`; a compressed body could inflate past the cap.
-        raise SlashApiError(status=response.status_code, message=f"compressed response refused ({encoding[:20]})")
+        raise SlashApiError(status=response.status_code, message=f"압축 응답 거부 ({encoding[:20]})")
     declared = response.headers.get("Content-Length", "")
     if declared.isdigit() and int(declared) > MAX_RESPONSE_BYTES:
-        raise SlashApiError(status=response.status_code, message="response too large")
+        raise SlashApiError(status=response.status_code, message="응답이 너무 큼")
     chunks: list[bytes] = []
     total = 0
     async for chunk in response.aiter_bytes():
         total += len(chunk)
         if total > MAX_RESPONSE_BYTES:
-            raise SlashApiError(status=response.status_code, message="response too large")
+            raise SlashApiError(status=response.status_code, message="응답이 너무 큼")
         chunks.append(chunk)
     return b"".join(chunks)
 
@@ -301,7 +302,7 @@ class SlashClient:
         try:
             canonical = str(UUID(str(page_id).strip()))
         except ValueError as exc:
-            raise ValueError(f"invalid page_id: {str(page_id)[:80]!r}") from exc
+            raise ValueError(f"잘못된 page_id: {str(page_id)[:80]!r}") from exc
         try:
             rules = await self.fetch_rules()
             if rules is not None and "pageId" not in rules and "page_id" not in rules:
@@ -310,10 +311,10 @@ class SlashClient:
             rules_id = str(UUID(str(rules_page))) if rules_page else None
         except (SlashApiError, httpx.HTTPError, TimeoutError, ValueError, RecursionError) as exc:
             raise ValueError(
-                f"Wiki write refused: could not look up the workspace rules page ({type(exc).__name__}). Try again."
+                f"위키 쓰기 거부: 워크스페이스 규칙 페이지를 확인하지 못함({type(exc).__name__}). 다시 시도"
             ) from exc
         if canonical == rules_id:
-            raise ValueError("This page can only be edited by people in the web app.")
+            raise ValueError(RULES_PAGE_REFUSED)
         return canonical
 
     # -- lookups -----------------------------------------------------------
@@ -326,7 +327,7 @@ class SlashClient:
         for project in await self.list_projects():
             if str(project.get("key", "")).upper() == wanted:
                 return project
-        raise NotFound(f"Project not found: {project_key}")
+        raise NotFound(f"프로젝트 없음: {project_key}")
 
     async def get_ticket_by_key(self, key: str, *, include_notes: bool = False) -> SlashResponse:
         params = {"include": "notes"} if include_notes else None
@@ -354,8 +355,7 @@ class SlashClient:
                 if attempt == 2:
                     raise VersionConflict(
                         status=409,
-                        message=f"{key.upper()} changed elsewhere twice during this write; "
-                        "re-read it with get_ticket and retry",
+                        message=f"{key.upper()}: 쓰는 동안 다른 곳에서 두 번 바뀜: get_ticket으로 다시 읽고 재시도",
                         errors=[conflict.message, *conflict.errors],
                         etag=conflict.etag,
                     ) from conflict
@@ -385,8 +385,6 @@ class SlashClient:
             return partial[0]
         if partial:
             names = ", ".join(f"{m.get('name')}({m.get('id')})" for m in partial)
-            raise ValueError(
-                f"'{wanted}' matches several members; pass a user id:\n{render.untrusted('members', names)}"
-            )
-        names = ", ".join(str(m.get("name") or m.get("id")) for m in members) or "(none)"
-        raise ValueError(f"No active member matches '{wanted}'. Members:\n{render.untrusted('members', names)}")
+            raise ValueError(f"'{wanted}'에 맞는 멤버가 여럿: user id로 지정\n{render.untrusted('members', names)}")
+        names = ", ".join(str(m.get("name") or m.get("id")) for m in members) or "(없음)"
+        raise ValueError(f"'{wanted}'에 맞는 활성 멤버 없음. 멤버:\n{render.untrusted('members', names)}")

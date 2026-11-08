@@ -205,6 +205,15 @@ def test_workspace_rules_opt_out():
     assert load_config(base(SLASH_PRO_WORKSPACE_RULES="0")).workspace_rules is False
 
 
+def test_tool_groups():
+    assert load_config(base()).tools is None
+    assert load_config(base(SLASH_PRO_TOOLS="all")).tools is None
+    assert load_config(base(SLASH_PRO_TOOLS="all,tickets")).tools is None
+    assert load_config(base(SLASH_PRO_TOOLS=" Tickets, wiki ,")).tools == {"tickets", "wiki"}
+    with pytest.raises(ConfigError, match="unknown SLASH_PRO_TOOLS group: nope"):
+        load_config(base(SLASH_PRO_TOOLS="tickets,nope"))
+
+
 def test_oversized_token_file_is_refused(tmp_path: Path):
     path = token_file(tmp_path, "et_" + "a" * 9000)
     with pytest.raises(ConfigError, match="too large"):

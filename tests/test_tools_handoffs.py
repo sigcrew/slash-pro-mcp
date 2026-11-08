@@ -1,5 +1,4 @@
-"""list_handoffs / claim_handoff / heartbeat_handoff / complete_handoff /
-block_handoff, and the delivery arguments of add_handoff (role / trigger / anchor).
+"""list_handoffs / update_handoff (claim / heartbeat / complete / block), and the delivery arguments of add_handoff (role / trigger / anchor).
 
 Handoff state calls carry no `If-Match` (the server's conditional UPDATE is the
 lock); a 409 surfaces the server's message with `claimed_by`.
@@ -73,7 +72,7 @@ async def test_list_handoffs_forwards_to_and_state(client: SlashClient, fake: Fa
     assert fake.calls[-1].query == {"to": "Codex", "limit": "50", "state": "completed,blocked"}
     await call_untrusted(client, "list_handoffs", to="Codex", state="all")
     assert fake.calls[-1].query["state"] == "all"
-    assert "unknown state: bogus" in await call_error(client, "list_handoffs", state="bogus")
+    assert "알 수 없는 state: bogus" in await call_error(client, "list_handoffs", state="bogus")
 
 
 async def test_list_handoffs_without_agent_label_omits_to(fake: FakeSlash, config: SlashConfig):
@@ -84,7 +83,7 @@ async def test_list_handoffs_without_agent_label_omits_to(fake: FakeSlash, confi
     finally:
         await api.aclose()
     assert fake.calls[-1].query == {"limit": "50"}  # the server then lists every recipient
-    assert text.endswith("; blocked by ABC-9, manual (-))")
+    assert text.endswith("; 기다리는 중 ABC-9, 수동 (-))")
 
 
 async def test_claim_heartbeat_complete_block(client: SlashClient, fake: FakeSlash):
@@ -100,26 +99,41 @@ async def test_claim_heartbeat_complete_block(client: SlashClient, fake: FakeSla
         json_response(200, handoff(state="blocked", claimedBy="Codex", blockedReason="토큰 없음")),
     )
 
-    text = unfence(await call(client, "claim_handoff", handoff_id=" h-1 "), "handoff")
+    text = unfence(await call(client, "update_handoff", handoff_id=" h-1 ", action="claim"), "handoff")
     assert text == "claim: ABC-23 인계 h-1 → claimed · 맡음 Codex · lease 2026-09-19T03:00:00+00:00"
     post = fake.calls[-1]
     assert post.body == {"agent": None}  # the server records the token's label
     assert "if-match" not in post.headers
     assert "x-requested-by" not in post.headers
 
-    await call(client, "heartbeat_handoff", handoff_id="h-1")
+    await call(client, "update_handoff", handoff_id="h-1", action="heartbeat")
     assert fake.calls[-1].body == {"agent": None}
 
-    text = unfence(await call(client, "complete_handoff", handoff_id="h-1", note_id="note-9"), "handoff")
+    text = unfence(
+        await call(client, "update_handoff", handoff_id="h-1", action="complete", note_id="note-9"), "handoff"
+    )
     assert text == "complete: ABC-23 인계 h-1 → completed · 맡음 Codex"
     assert fake.calls[-1].body == {"agent": None, "note_id": "note-9"}
-    await call(client, "complete_handoff", handoff_id="h-1")
+    await call(client, "update_handoff", handoff_id="h-1", action="complete")
     assert fake.calls[-1].body == {"agent": None, "note_id": None}
+    # clients that send every parameter: empty strings for unused ones are not errors
+    await call(client, "update_handoff", handoff_id="h-1", action="heartbeat", note_id="", reason="")
+    assert fake.calls[-1].body == {"agent": None}
 
-    text = unfence(await call(client, "block_handoff", handoff_id="h-1", reason="토큰 없음"), "handoff")
+    text = unfence(
+        await call(client, "update_handoff", handoff_id="h-1", action="block", reason="토큰 없음"), "handoff"
+    )
     assert text == "block: ABC-23 인계 h-1 → blocked · 맡음 Codex"
     assert fake.calls[-1].body == {"agent": None, "reason": "토큰 없음"}
-    assert "reason must not be empty" in await call_error(client, "block_handoff", handoff_id="h-1", reason=" ")
+    calls = len(fake.calls)
+    for args, err in (
+        ({"action": "block", "reason": " "}, "reason이 비어 있음"),
+        ({"action": "block"}, "reason이 비어 있음"),
+        ({"action": "claim", "note_id": "n"}, "note_id는 action=complete에서만"),
+        ({"action": "complete", "reason": "r"}, "reason은 action=block에서만"),
+    ):
+        assert err in await call_error(client, "update_handoff", handoff_id="h-1", **args)
+    assert len(fake.calls) == calls
 
 
 async def test_claim_taken_surfaces_holder(client: SlashClient, fake: FakeSlash):
@@ -128,7 +142,7 @@ async def test_claim_taken_surfaces_holder(client: SlashClient, fake: FakeSlash)
         ws_path("/handoffs/h-1/claim"),
         json_response(409, raw={"message": "이미 맡은 인계입니다 (Codex)", "code": 409, "claimed_by": "Codex"}),
     )
-    text = await call_error(client, "claim_handoff", handoff_id="h-1")
+    text = await call_error(client, "update_handoff", handoff_id="h-1", action="claim")
     assert "HTTP 409: 이미 맡은 인계입니다 (Codex)" in text
     assert len(fake.calls) == 1  # no retry: a claim conflict is final
 
@@ -151,8 +165,8 @@ async def test_add_handoff_sends_role_trigger_and_anchor(client: SlashClient, fa
     assert post.body["handoff"]["requested_role"] == "verifier"
     assert post.body["handoff"]["trigger"] == "human"
     assert post.body["handoff"]["anchor"] == {"pr_urls": ["https://example.com/pull/1"], "head_shas": ["abc1234"]}
-    assert "unknown role: boss" in await call_error(client, "add_handoff", key="ABC-23", goal="g", role="boss")
-    assert "unknown trigger: cron" in await call_error(client, "add_handoff", key="ABC-23", goal="g", trigger="cron")
+    assert "알 수 없는 role: boss" in await call_error(client, "add_handoff", key="ABC-23", goal="g", role="boss")
+    assert "알 수 없는 trigger: cron" in await call_error(client, "add_handoff", key="ABC-23", goal="g", trigger="cron")
 
 
 async def test_add_handoff_sends_model_and_list_shows_it(client: SlashClient, fake: FakeSlash):

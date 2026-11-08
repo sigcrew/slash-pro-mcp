@@ -137,12 +137,17 @@ def ws_path(suffix: str) -> str:
     return f"/api/workspaces/{WS}{suffix}"
 
 
+NONE_TOKEN = re.compile(r"\bNone\b")
+
+
 async def call_raw(client: SlashClient, name: str, arguments: dict[str, Any]) -> tuple[bool, str]:
     """Run one tool over an in-memory MCP session; returns (isError, text)."""
     server = build_server(client)
     async with create_connected_server_and_client_session(server) as session:
         result = await session.call_tool(name, arguments)
     text = "\n".join(c.text for c in result.content if getattr(c, "text", None))
+    # A renderer reading a missing/renamed wire field shows "None"; every helper result goes through here.
+    assert not NONE_TOKEN.search(text), f"tool {name} leaked None: {text}"
     return bool(result.isError), text
 
 
@@ -165,7 +170,6 @@ UNTRUSTED_SOURCES = {
     "list_tickets": "ticket list",
     "get_meeting": "meeting",
     "list_meetings": "meeting list",
-    "get_minutes": "meeting minutes",
     "find_transcript_excerpts": "meeting transcript",
     "get_prd": "prd",
     "list_prds": "prd list",

@@ -1,6 +1,5 @@
 """Ticket tools: list/get (read), create/status/assignee·due/note/handoff/deployed (write),
-relate_ticket, verification, and handoff delivery: list_handoffs / claim / heartbeat /
-complete / block."""
+relate_ticket, verification, and handoff delivery: list_handoffs / update_handoff."""
 
 from __future__ import annotations
 
@@ -54,8 +53,8 @@ class VerificationIssue(BaseModel):
 
 
 class VerificationReport(BaseModel):
-    """Mirrors the server's `InVerification` (extra fields are rejected there too)."""
-
+    # Mirrors the server's `InVerification` (extra fields are rejected there too). No docstring:
+    # it would be sent as the schema description in every tools/list.
     model_config = ConfigDict(extra="forbid")
     run_id: UUID | None = Field(None, description="id returned by start_verification")
     verdict: Literal["passed", "failed", "blocked"]
@@ -67,20 +66,20 @@ class VerificationReport(BaseModel):
     human_todo: list[str] = Field(default_factory=list, max_length=100, description="things only a person can do")
     checklist_passed: list[str] = Field(default_factory=list, max_length=200, description="checklist row ids")
     answers_acknowledged: list[str] = Field(
-        default_factory=list, max_length=200, description="every new_answer_question_ids from start_verification"
+        default_factory=list, max_length=200, description="all new_answer_question_ids from start_verification"
     )
 
 
 def _relation_summary(status: int, data: dict[str, Any]) -> str:
     """One line for the relation, plus copied / copyable rejected (✗) rows and server warnings."""
-    verb = "Already exists" if status == 200 else "Relation added"
+    verb = "이미 있음" if status == 200 else "관계 추가"
     lines = [f"{verb}: {data['from']['key']} {data['kind']} {data['to']['key']}"]
     taken, available = data.get("rejectedTaken"), data.get("rejectedAvailable")
     if taken:
-        lines.append(f"Copied {taken} rejected (✗) row(s) from {data['to']['key']}")
+        lines.append(f"{data['to']['key']}에서 ✗ 항목 {taken}개 복사")
     if available:
-        lines.append(f"{available} rejected (✗) row(s) can be copied: call again with take_rejected=True")
-    lines += [f"Warning: {w}" for w in data.get("warnings") or []]
+        lines.append(f"✗ 항목 {available}개 복사 가능: take_rejected=True로 다시 호출")
+    lines += [f"경고: {w}" for w in data.get("warnings") or []]
     return "\n".join(lines)
 
 
@@ -103,11 +102,9 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         blocked: bool | None = None,
         limit: int = 50,
     ) -> str:
-        """List tickets, newest first. project_key: one project (default: whole workspace).
-        status: `todo|in_progress` (default), a combination like `review,done` (canceled included), or `all`.
-        prd: PRD page id, or `none` for tickets without a PRD. assignee: member name or user id ('me' is not supported).
-        blocked: True = blocked only, False = unblocked only. limit: 1-200 (default 50); a final line counts the rest.
-        One line per ticket: `KEY-N · status · priority — title`."""
+        """List tickets, newest first; the whole workspace unless project_key. status: `todo,in_progress` (default),
+        any comma list (canceled included) or `all`. prd: PRD page id or `none`. assignee: member name or user id (not 'me').
+        blocked: true = blocked only, false = unblocked only. limit: max 200."""
         wanted = split_statuses(status)
         limit = max(1, min(int(limit), MAX_LIST_LIMIT))
         params: dict[str, Any] = {}
@@ -116,7 +113,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         if assignee and assignee.strip():
             if assignee.strip().lower() in ("me", "나", "내"):
                 # No token-accessible "who am I" endpoint exists to map the token owner to a user id.
-                raise ValueError("assignee='me' is not supported yet; pass your name or user id")
+                raise ValueError("assignee='me'는 아직 지원하지 않음: 이름이나 user id로 지정")
             params["assignee_id"] = (await client.resolve_assignee(assignee))["id"]
         if blocked is not None:
             params["is_blocked"] = "true" if blocked else "false"
@@ -125,7 +122,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         if project_key:
             matched = [p for p in projects if p["key"].upper() == project_key.strip().upper()]
             if not matched:
-                raise ValueError(f"Project not found: {project_key}")
+                raise ValueError(f"프로젝트 없음: {project_key}")
             path = f"/projects/{path_segment(matched[0]['id'])}/tickets"
             keys = {None: matched[0]["key"]}  # project endpoint: every row is this project
         else:
@@ -150,15 +147,15 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         text = render.render_ticket_list(rows[:limit])
         if len(rows) > limit:
             text += (
-                f"\n… {len(rows) - limit} more — narrow with status/assignee/prd or raise limit (max {MAX_LIST_LIMIT})"
+                f"\n… 외 {len(rows) - limit}개 — status/assignee/prd로 좁히거나 limit을 올리기 (최대 {MAX_LIST_LIMIT})"
             )
         return render.untrusted("ticket list", text)
 
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def get_ticket(key: str) -> str:
-        """Full working context of one ticket as markdown: title, status, description, requirements,
-        acceptance checklist, evidence, relations, recent handoffs, activity. key: e.g. CORE-23."""
+        """Full working context of one ticket (description, checklist, evidence, relations, handoffs, activity).
+        key: e.g. CORE-23."""
         text = await client.get_text(
             f"/tickets/by-key/{path_segment(key.upper(), 'ticket key')}/context", params={"format": "markdown"}
         )
@@ -167,18 +164,17 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=WRITE)
     @tool_errors
     async def start_verification(key: str, commits: list[str]) -> str:
-        """Call before verifying: pins the current question answers and the commits under test. Pass the
-        returned id as run_id to add_verification. commits: immutable ids (e.g. repo@full-SHA), exactly as
-        they will appear in the report. If payload.verification_basis.new_answer_question_ids is non-empty,
-        read those answers and list every id in report.answers_acknowledged (the server returns 422 otherwise)."""
+        """Call before verifying: pins the current answers and the commits under test (immutable ids such as
+        repo@full-SHA, exactly as in the report). Pass the returned id as report.run_id to add_verification. List every
+        verification_basis.new_answer_question_ids in report.answers_acknowledged, or the server returns 422."""
         result = await client.ticket_write(key, "POST", "/verification-runs", {"commits": commits})
         return render.untrusted("verification", json.dumps(result.data, ensure_ascii=False))
 
     @mcp.tool(structured_output=False, annotations=WRITE)
     @tool_errors
     async def add_verification(key: str, report: VerificationReport) -> str:
-        """Record a structured verification report on a ticket. A report whose run is stale or missing
-        is kept as evidence but does not count as the latest pass. Does not start a run by itself."""
+        """Record a verification report. A report whose run is stale or missing is kept but does not count
+        as the latest pass."""
         payload = report.model_dump(mode="json", exclude_unset=True)
         result = await client.ticket_write(key, "POST", "/notes", {"kind": "verification", "verification": payload})
         client.remember_note(result.data, "verification")
@@ -200,24 +196,21 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         take_rejected: bool = False,
         parent: str | None = None,
     ) -> str:
-        """Create a ticket; returns its new key (KEY-N). priority: low|medium|high|urgent.
-        status: backlog|todo|in_progress|review|done, applied right after creation (canceled: web app, needs a reason).
-        prd_page_id: attach to a PRD of the same project right after creation.
-        parent: key of a regular ticket in the same project; the new ticket becomes its sub-ticket (no nesting).
-        follows: origin ticket key(s), comma-separated (up to 20), making this a follow-up. The first origin's rejected
-        (✗) checklist rows move over and an empty title/description is drafted from it; further origins are
-        linked afterwards (take_rejected=True also copies their ✗ rows). parent is hierarchy, follows is lineage.
-        request_builder=True hands the follow-up to the first origin's builder; to/model (agent label and
-        undated model alias) hand it to that agent instead. Use relate_ticket(kind=blocks) for ordering.
-        If a step after creation fails, the result still names the new key and the failed step."""
+        """Create a ticket; returns its key. title or follows is required. priority: low|medium|high|urgent.
+        status: backlog|todo|in_progress|review|done, set after creation (canceled: web app only).
+        prd_page_id: a PRD of the same project. parent: a regular ticket in the same project (sub-ticket, no nesting).
+        follows: origin key(s), comma-separated (max 20), making this a follow-up: the first origin's ✗ checklist rows move
+        over and an empty title/description is drafted from it; take_rejected=True also copies the other origins' ✗ rows.
+        request_builder=True hands it to the first origin's builder; to (+ model: undated alias) hands it to that agent.
+        Ordering: relate_ticket(kind=blocks). If a later step fails, the result still names the new key: don't retry."""
         priority = check_choice("priority", priority, TICKET_PRIORITIES)
         target_status = check_writable_status(status) if status else None
         started = asyncio.get_running_loop().time()
         origin_keys = check_keys((follows or "").replace(" ", ",").split(","), MAX_LINKED_KEYS)
         if not (title and title.strip()) and not origin_keys:
-            raise ValueError("title or follows is required")
+            raise ValueError("title이나 follows가 필요함")
         if model and model.strip() and not (to and to.strip()):
-            raise ValueError("model needs to (the agent that receives the handoff)")
+            raise ValueError("model에는 to(인계받을 에이전트)가 필요함")
         project = await client.resolve_project(project_key)
         body: dict[str, Any] = {"priority": priority}
         if title and title.strip():
@@ -238,11 +231,11 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         key = render.ticket_key(project["key"], created.data)
         lines: list[str] = []
         ticket = created.data
-        steps = [f"linking follows {k}" for k in origin_keys[1:]] + ["re-reading the ticket"]
+        steps = [f"follows {k} 연결" for k in origin_keys[1:]] + ["티켓 다시 읽기"]
         if prd_page_id and prd_page_id.strip():
-            steps.append("attaching the PRD")
+            steps.append("PRD 연결")
         if target_status:
-            steps.append(f"setting status {target_status}")
+            steps.append(f"상태 {target_status}로 변경")
         done = 0
         try:
             async with follow_up_deadline(started):
@@ -263,10 +256,10 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
                 if target_status and ticket.get("status") != target_status:
                     ticket = (await client.ticket_write(key, "PATCH", "", {"status": target_status})).data
         except FOLLOW_UP_ERRORS as exc:
-            skipped = f"\nSkipped: {', '.join(steps[done + 1 :])}" if steps[done + 1 :] else ""
-            lines.append(f"Created {key}, but {steps[done]} failed:\n{str(exc) or type(exc).__name__}{skipped}")
-        lines.insert(0, f"Created: {render.render_ticket_brief(key, ticket)}{render.hierarchy_suffix(ticket)}")
-        lines += [f"Warning: {w}" for w in created.warnings]
+            skipped = f"\n건너뜀: {', '.join(steps[done + 1 :])}" if steps[done + 1 :] else ""
+            lines.append(f"{key} 생성됨, 그러나 {steps[done]} 실패:\n{str(exc) or type(exc).__name__}{skipped}")
+        lines.insert(0, f"티켓 생성: {render.render_ticket_brief(key, ticket)}{render.hierarchy_suffix(ticket)}")
+        lines += [f"경고: {w}" for w in created.warnings]
         return render.untrusted("ticket write", "\n".join(lines))
 
     @mcp.tool(structured_output=False, annotations=WRITE_IDEMPOTENT)
@@ -274,12 +267,9 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     async def relate_ticket(
         key: str, kind: str, target_key: str, reverse: bool = False, take_rejected: bool = False
     ) -> str:
-        """Add a ticket relation `key kind target_key`; reverse=True makes it `target_key kind key`.
-        kind=follows: key is a follow-up of target (fix, leftover, QA finding); a ticket may follow several.
-        take_rejected=True copies the target's not-yet-copied rejected (✗) checklist rows (without it, the
-        result only reports how many could be copied). kind=blocks: key must finish before target can start.
-        An existing identical relation returns "Already exists". 409 relation_cycle / rework_in_progress
-        come back as the server's message."""
+        """Add relation `key kind target_key` (reverse=True: `target_key kind key`). kind=follows: key is a
+        follow-up of target (several allowed); take_rejected=True copies the target's uncopied ✗ checklist rows, otherwise
+        only their count is reported. kind=blocks: key must finish before target can start."""
         kind = check_choice("kind", kind, RELATION_KINDS)
         ticket = (await client.get_ticket_by_key(key)).data
         body: dict[str, Any] = {"kind": kind, "targetKey": target_key.strip().upper(), "reverse": reverse}
@@ -290,51 +280,47 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
 
     @mcp.tool(structured_output=False, annotations=DESTRUCTIVE_IDEMPOTENT)
     @tool_errors
-    async def update_ticket_status(key: str, status: str) -> str:
-        """Change a ticket's status: backlog|todo|in_progress|review|done. canceled needs a reason and is
-        set in the web app. Follow the workspace's rules on who moves tickets to done."""
-        status = check_writable_status(status)
-        await client.ticket_write(key, "PATCH", "", {"status": status})
-        return f"{key.strip().upper()} → {status}"
-
-    @mcp.tool(structured_output=False, annotations=DESTRUCTIVE_IDEMPOTENT)
-    @tool_errors
-    async def update_ticket(key: str, assignee: str | None = None, due: str | None = None) -> str:
-        """Change a ticket's assignee and/or due date (status: update_ticket_status).
-        assignee: member name or user id (several matches return the candidates). due: YYYY-MM-DD.
-        Pass "none" to clear either. Omitted values stay unchanged; at least one is required."""
+    async def update_ticket(
+        key: str, status: str | None = None, assignee: str | None = None, due: str | None = None
+    ) -> str:
+        """Change status, assignee and/or due; omitted ones stay. status: backlog|todo|in_progress|review|done
+        (canceled: web app; follow the workspace rules on who sets done). assignee: member name or user id. due: YYYY-MM-DD.
+        "none" clears assignee or due."""
         body: dict[str, Any] = {}
         changes: list[str] = []
+        if status is not None and status.strip():
+            body["status"] = check_writable_status(status)
+            changes.append(f"→ {body['status']}")
         if assignee is not None and assignee.strip():
             if assignee.strip().lower() in CLEAR_WORDS:
                 body["assignee_id"] = None
-                changes.append("assignee → none")
+                changes.append("담당자 → 없음")
             else:
                 who = await client.resolve_assignee(assignee)
                 body["assignee_id"] = who["id"]
-                changes.append(f"assignee → {who.get('name') or who['id']}")
+                changes.append(f"담당자 → {who.get('name') or who['id']}")
         if due is not None and due.strip():
             if due.strip().lower() in CLEAR_WORDS:
                 body["due_date"] = None
-                changes.append("due → none")
+                changes.append("마감일 → 없음")
             else:
                 body["due_date"] = check_due_date(due)
-                changes.append(f"due → {body['due_date']}")
+                changes.append(f"마감일 → {body['due_date']}")
         if not body:
-            raise ValueError("assignee or due is required")
+            raise ValueError("status, assignee, due 중 하나가 필요함")
         await client.ticket_write(key, "PATCH", "", body)
         return render.untrusted("ticket write", f"{key.strip().upper()} " + " · ".join(changes))
 
     @mcp.tool(structured_output=False, annotations=WRITE)
     @tool_errors
     async def add_note(key: str, body: str) -> str:
-        """Add a markdown note to a ticket's timeline. Verification results: add_verification;
-        passing work on: add_handoff."""
+        """Add a markdown note to a ticket's timeline. Verification: add_verification; handing work on:
+        add_handoff."""
         if not body.strip():
-            raise ValueError("body must not be empty")
+            raise ValueError("body가 비어 있음")
         response = await client.ticket_write(key, "POST", "/notes", {"body": body})
         client.remember_note(response.data, "manual")
-        return f"Note added {shown_id(response.data['id'])} ({key.strip().upper()})"
+        return f"노트 추가: {shown_id(response.data['id'])} ({key.strip().upper()})"
 
     @mcp.tool(structured_output=False, annotations=WRITE)
     @tool_errors
@@ -352,13 +338,11 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         pr_urls: list[str] | None = None,
         head_shas: list[str] | None = None,
     ) -> str:
-        """Add a structured handoff note: goal (required), done, remaining, acceptance, verification (how to
-        verify), to (receiving agent label), model (requested undated model alias; usually left empty),
-        role (builder|verifier|planner: what the receiver does), trigger (human|agent, default agent; the
-        server stores human from an API token as agent), pr_urls / head_shas (the version to verify).
-        The receiver picks it up with list_handoffs and claim_handoff; get_ticket shows recent handoffs."""
+        """Add a handoff note. goal is required. verification: how to verify. to: receiving agent label; model:
+        undated model alias (usually empty). role: builder|verifier|planner. trigger: human|agent (default agent; a token's
+        human is stored as agent). pr_urls / head_shas: the version to verify."""
         if not goal.strip():
-            raise ValueError("goal must not be empty")
+            raise ValueError("goal이 비어 있음")
         handoff: dict[str, Any] = {
             "to_agent": to.strip() if to and to.strip() else None,
             "goal": goal,
@@ -380,7 +364,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         payload = {"kind": "handoff", "handoff": handoff}
         response = await client.ticket_write(key, "POST", "/notes", payload)
         client.remember_note(response.data, "handoff")
-        return f"Handoff note added {shown_id(response.data['id'])} ({key.strip().upper()})"
+        return f"인계 노트 추가: {shown_id(response.data['id'])} ({key.strip().upper()})"
 
     # -- handoff delivery -----------------------------------------------
     # The server records the token's own label as the agent (`agent: null` in the body).
@@ -388,10 +372,8 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def list_handoffs(to: str | None = None, state: str | None = None) -> str:
-        """Handoff inbox, newest first. to: recipient label (aliases match, e.g. codex = Codex); default is
-        SLASH_PRO_AGENT when set, otherwise handoffs to every recipient in the workspace.
-        state: `open,claimed` (default), any combination, or `all`. Lapsed claims are reopened on read.
-        One line per handoff: `KEY · state · role · trigger — summary (id …)`."""
+        """Handoff inbox, newest first. to: recipient label (aliases match); default SLASH_PRO_AGENT, else every
+        recipient. state: `open,claimed` (default), any comma list or `all`. Lapsed claims reopen on read."""
         params: dict[str, Any] = {"limit": 50}
         recipient = (to or client.config.agent or "").strip()
         if recipient:
@@ -402,55 +384,46 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
                 parts = [p.strip() for p in wanted.replace("|", ",").split(",") if p.strip()]
                 unknown = [p for p in parts if p not in HANDOFF_STATES]
                 if unknown:
-                    raise ValueError(f"unknown state: {', '.join(unknown)} (allowed: {', '.join(HANDOFF_STATES)})")
+                    raise ValueError(f"알 수 없는 state: {', '.join(unknown)} (허용: {', '.join(HANDOFF_STATES)})")
                 wanted = ",".join(parts)
             params["state"] = wanted
         rows = await client.get_data("/handoffs", params=params)
         return render.untrusted("handoffs", render.render_handoffs(list(rows or [])))
 
-    async def handoff_action(handoff_id: str, action: str, body: dict[str, Any]) -> str:
+    @mcp.tool(structured_output=False, annotations=WRITE)
+    @tool_errors
+    async def update_handoff(
+        handoff_id: str,
+        action: Literal["claim", "heartbeat", "complete", "block"],
+        note_id: str | None = None,
+        reason: str | None = None,
+    ) -> str:
+        """claim: take an open handoff (2-hour lease; the error names a current holder), then get_ticket.
+        heartbeat: extend your lease by 2 hours. complete: finish yours; note_id: the result note, optional.
+        block: give yours up with a reason (required); a person reopens it."""
+        if note_id and note_id.strip() and action != "complete":
+            raise ValueError("note_id는 action=complete에서만 받음")
+        if action == "block" and not (reason and reason.strip()):
+            raise ValueError("reason이 비어 있음")
+        if reason and reason.strip() and action != "block":
+            raise ValueError("reason은 action=block에서만 받음")
+        body: dict[str, Any] = {}
+        if action == "complete":
+            body["note_id"] = note_id.strip() if note_id and note_id.strip() else None
+        elif action == "block":
+            body["reason"] = reason
         path = f"/handoffs/{path_segment(handoff_id, 'handoff_id')}/{action}"
         response = await client.request("POST", path, json={"agent": None, **body})
         return render.untrusted("handoff", f"{action}: " + render.render_handoff_brief(response.data))
 
-    @mcp.tool(structured_output=False, annotations=WRITE)
-    @tool_errors
-    async def claim_handoff(handoff_id: str) -> str:
-        """Claim an open handoff (atomic; 2-hour lease). If someone already holds it, the error names them.
-        Then read the ticket with get_ticket and finish with complete_handoff."""
-        return await handoff_action(handoff_id, "claim", {})
-
-    @mcp.tool(structured_output=False, annotations=WRITE_IDEMPOTENT)
-    @tool_errors
-    async def heartbeat_handoff(handoff_id: str) -> str:
-        """Extend the lease of a handoff you hold by 2 hours. Call periodically during long work."""
-        return await handoff_action(handoff_id, "heartbeat", {})
-
-    @mcp.tool(structured_output=False, annotations=WRITE)
-    @tool_errors
-    async def complete_handoff(handoff_id: str, note_id: str | None = None) -> str:
-        """Mark a handoff you hold as completed. note_id: the note holding the result (verification,
-        handoff or plain note), if any."""
-        return await handoff_action(
-            handoff_id, "complete", {"note_id": note_id.strip() if note_id and note_id.strip() else None}
-        )
-
-    @mcp.tool(structured_output=False, annotations=WRITE)
-    @tool_errors
-    async def block_handoff(handoff_id: str, reason: str) -> str:
-        """Mark a handoff you hold as blocked, with the reason you cannot continue. A person reopens it."""
-        if not reason.strip():
-            raise ValueError("reason must not be empty")
-        return await handoff_action(handoff_id, "block", {"reason": reason})
-
     @mcp.tool(structured_output=False, annotations=WRITE_IDEMPOTENT)
     @tool_errors
     async def mark_deployed(version: str, keys: list[str]) -> str:
-        """Add a "deployed in <version>" system note to each ticket (up to 50); tickets that already
-        have it are skipped."""
+        """Add a `<version>으로 배포됨` system note to each ticket (max 50); tickets that have it are
+        skipped."""
         version = version.strip()
         if not version:
-            raise ValueError("version must not be empty")
+            raise ValueError("version이 비어 있음")
         marker = f"{version}으로 배포됨"
         lines: list[str] = []
         for key in check_keys(keys):
@@ -458,13 +431,13 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
                 ticket = (await client.get_ticket_by_key(key, include_notes=True)).data
             except SlashApiError as exc:
                 if exc.status == 404:
-                    lines.append(f"{key}: not found (skipped)")
+                    lines.append(f"{key}: 없음 (건너뜀)")
                     continue
                 raise
             notes = ticket.get("notes") or []
             if any(n.get("kind") == "system" and n.get("body") == marker for n in notes):
-                lines.append(f"{key}: already recorded")
+                lines.append(f"{key}: 이미 기록됨")
                 continue
             await client.ticket_write(key, "POST", "/notes", {"kind": "system", "body": marker})
-            lines.append(f"{key}: recorded")
-        return "\n".join(lines) if lines else "(no tickets)"
+            lines.append(f"{key}: 기록함")
+        return "\n".join(lines) if lines else "(티켓 없음)"

@@ -17,18 +17,16 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=WRITE)
     @tool_errors
     async def ask_questions(key: str, questions: list[dict], handoff_id: str | None = None) -> str:
-        """Ask the ticket's owner about missing readiness items (1-4 questions, one point each, multiple
-        choice preferred). questions: [{rubric_key: goal|scope|acceptance|evidence|open_questions, question,
-        options?: [up to 6], source_bullet?: the open-question bullet it came from}]. handoff_id puts that
-        handoff in input_required until answered (it then reopens in the inbox). Only people answer.
-        409 when 4 questions are already open."""
+        """Ask the ticket's owner about missing readiness items, 1-4 questions, multiple choice preferred:
+        [{rubric_key: goal|scope|acceptance|evidence|open_questions, question, options? (max 6), source_bullet?}].
+        handoff_id puts that handoff in input_required until answered. 409 when 4 are open."""
         if not 1 <= len(questions) <= 4:
-            raise ValueError("questions must have 1-4 items")
+            raise ValueError("questions는 1~4개")
         drafts: list[dict[str, Any]] = []
         for raw in questions:
             text = str(raw.get("question", "")).strip()
             if not text:
-                raise ValueError("question must not be empty")
+                raise ValueError("question이 비어 있음")
             options = [str(o).strip() for o in (raw.get("options") or []) if str(o).strip()]
             drafts.append(
                 {
@@ -43,8 +41,8 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         ticket = (await client.get_ticket_by_key(key)).data
         response = await client.request("POST", f"/tickets/{path_segment(ticket['id'])}/questions", json=body)
         rows = list(response.data or [])
-        tail = f" · handoff {note_id} → input_required" if note_id else ""
-        lines = [f"Asked {len(rows)} question(s) ({key.strip().upper()}){tail}"]
+        tail = f" · 인계 {note_id} → input_required" if note_id else ""
+        lines = [f"질문 {len(rows)}개 등록 ({key.strip().upper()}){tail}"]
         for r in rows:
             options = render.wire_field(r, "options") or []
             opts = f" (선택: {' / '.join(options)})" if options else ""
@@ -57,13 +55,11 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def list_questions(key: str | None = None, to: str | None = None, state: str | None = None) -> str:
-        """Readiness questions. key: one ticket's questions, filtered by state (open|answered|dismissed|
-        waived|all, default open). Without key: the open questions a person should answer; to = "me"
-        (default, the token owner), a user id, or a member name.
-        One line per question: `- [state · item] KEY question (options) — asked by, when (id …)`."""
+        """Readiness questions. key: that ticket's, state open (default)|answered|dismissed|waived|all.
+        Without key: open questions for to = "me" (default), a user id or a member name."""
         if key:
             if to and to.strip():
-                raise ValueError("pass key or to, not both")
+                raise ValueError("key와 to 중 하나만 지정")
             wanted = (state or "open").strip().lower()
             if wanted != "all":
                 wanted = check_choice("state", wanted, QUESTION_STATES)
@@ -71,7 +67,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
             rows = await client.get_data(f"/tickets/{path_segment(ticket['id'])}/questions", params={"state": wanted})
         else:
             if state and state.strip():
-                raise ValueError("state applies only with key; the inbox lists open questions")
+                raise ValueError("state는 key와 함께만 씀: 받은 질문함은 열린 질문만 보여 줌")
             person = (to or "me").strip()
             if person.lower() != "me":
                 try:
@@ -84,20 +80,20 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=WRITE)
     @tool_errors
     async def readiness_refresh(key: str) -> str:
-        """Re-judge a ticket's readiness (remaining assumptions). With open questions already, shows them
-        instead of judging again. Limit: 3 per ticket per day (409 judge_limit)."""
+        """Re-judge a ticket's readiness (remaining assumptions); with open questions, shows them
+        instead. Max 3 per ticket per day."""
         ticket = (await client.get_ticket_by_key(key)).data
         response = await client.request("POST", f"/tickets/{path_segment(ticket['id'])}/readiness/judge")
         data = response.data or {}
         skipped = render.wire_field(data, "skipped")
         tail = {
-            None: "judged",
-            "open_questions": "open questions exist; wait for a person to answer",
-            "cache": "unchanged; previous judgement kept",
-            "limit": "daily limit reached; previous judgement kept",
-            "stale": "description changed while judging; run again",
+            None: "판정함",
+            "open_questions": "열린 질문이 있음: 사람의 답을 기다리기",
+            "cache": "변경 없음: 이전 판정 유지",
+            "limit": "일일 한도 도달: 이전 판정 유지",
+            "stale": "판정 중 설명이 바뀜: 다시 실행",
         }.get(skipped, str(skipped))
-        lines = [f"Remaining assumptions: {render.wire_field(data, 'remaining')} ({key.strip().upper()}) · {tail}"]
+        lines = [f"남은 가정: {render.wire_field(data, 'remaining')} ({key.strip().upper()}) · {tail}"]
         for r in data.get("questions") or []:
             options = render.wire_field(r, "options") or []
             opts = f" (선택: {' / '.join(options)})" if options else ""
