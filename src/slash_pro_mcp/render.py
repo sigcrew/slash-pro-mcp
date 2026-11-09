@@ -177,7 +177,7 @@ def render_excerpts(candidates: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def render_wiki_tree(pages: list[dict]) -> str:
+def render_document_tree(pages: list[dict]) -> str:
     if not pages:
         return "(위키 페이지 없음)"
     by_parent: dict[Any, list[dict]] = {}
@@ -199,7 +199,7 @@ def render_wiki_tree(pages: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def render_wiki_page(page: dict) -> str:
+def render_document(page: dict) -> str:
     header = f"# {page.get('title')}\n\n- id: {page.get('id')} · 유형: {wire_field(page, 'page_type')}"
     if wire_field(page, "meeting_id"):
         header += f" · 회의: {wire_field(page, 'meeting_id')}"
@@ -219,7 +219,7 @@ def matching_lines(text: str, query: str, context: int = 0) -> list[str]:
     return hits
 
 
-def render_wiki_search(query: str, pages: list[dict]) -> str:
+def render_document_search(query: str, pages: list[dict]) -> str:
     """Pages whose title or plain text contains `query` (case-insensitive)."""
     blocks: list[str] = []
     for page in pages:

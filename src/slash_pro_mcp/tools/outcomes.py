@@ -182,7 +182,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     async def add_ticket_to_outcome(
         outcome: str, ticket_key: str, move: bool = False, confirm_leaves_legacy_prd: bool = False
     ) -> str:
-        """Add a ticket to an outcome (same project; needs tickets:read, tickets:write, wiki:read).
+        """Add a ticket to an outcome (same project; needs tickets:read, tickets:write, document:read).
         A ticket in another outcome gives 409 ticket_in_other_outcome unless move=True. Leaving a PRD-inherited outcome
         needs confirm_leaves_legacy_prd=True."""
         return await membership(outcome, ticket_key, remove=False, move=move, confirm_prd=confirm_leaves_legacy_prd)

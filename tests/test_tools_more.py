@@ -346,10 +346,10 @@ UPDATE = {
 
 
 async def test_doc_updates_list_and_accept(client: SlashClient, fake: FakeSlash):
-    fake.on("GET", ws_path(f"/wiki/pages/{PAGE}/doc-updates"), json_response(200, [UPDATE]))
+    fake.on("GET", ws_path(f"/documents/pages/{PAGE}/doc-updates"), json_response(200, [UPDATE]))
     text = await fenced(client, "list_doc_updates", "doc updates", page_id=PAGE)
     assert text == f"- [proposed] append @ 결정: stdio로 간다 (id {UPD}, 페이지 {PAGE}, 회의 스크럼)"
-    fake.on("POST", ws_path(f"/wiki/doc-updates/{UPD}/accept"), json_response(200, {**UPDATE, "state": "accepted"}))
+    fake.on("POST", ws_path(f"/documents/doc-updates/{UPD}/accept"), json_response(200, {**UPDATE, "state": "accepted"}))
     assert (
         await fenced(client, "resolve_doc_update", "doc update", update_id=UPD, page_id=PAGE, action="accept")
     ).startswith("accept: - [accepted]")
@@ -366,7 +366,7 @@ async def test_doc_update_writes_are_guarded(client: SlashClient, fake: FakeSlas
         assert "사람만 고칠 수 있음" in await call_error(client, tool, **args)
     assert {c.method for c in fake.calls} == {"GET"}  # only the rules lookups
     # an update id that is not on the named page is refused before any write
-    fake.on("GET", ws_path(f"/wiki/pages/{PAGE}/doc-updates"), json_response(200, []))
+    fake.on("GET", ws_path(f"/documents/pages/{PAGE}/doc-updates"), json_response(200, []))
     assert "최근 200개 업데이트에 없음" in await call_error(
         client, "resolve_doc_update", update_id=UPD, page_id=PAGE, action="accept"
     )
@@ -378,8 +378,8 @@ async def test_reject_checks_the_page_and_refresh_needs_none(client: SlashClient
     assert "사람만 고칠 수 있음" in await call_error(
         client, "resolve_doc_update", update_id=UPD, page_id=RULES, action="reject"
     )
-    fake.on("GET", ws_path(f"/wiki/pages/{PAGE}/doc-updates"), json_response(200, [UPDATE]))
-    fake.on("POST", ws_path(f"/wiki/doc-updates/{UPD}/reject"), json_response(200, {**UPDATE, "state": "rejected"}))
+    fake.on("GET", ws_path(f"/documents/pages/{PAGE}/doc-updates"), json_response(200, [UPDATE]))
+    fake.on("POST", ws_path(f"/documents/doc-updates/{UPD}/reject"), json_response(200, {**UPDATE, "state": "rejected"}))
     assert "[rejected]" in await call(client, "resolve_doc_update", update_id=UPD, page_id=PAGE, action="reject")
     assert "잘못된 update_id" in await call_error(client, "refresh_doc_update", update_id="../x")
 
@@ -387,7 +387,7 @@ async def test_reject_checks_the_page_and_refresh_needs_none(client: SlashClient
 async def test_accept_all_reports_skipped_rows(client: SlashClient, fake: FakeSlash):
     fake.on(
         "POST",
-        ws_path(f"/wiki/pages/{PAGE}/doc-updates/accept-all"),
+        ws_path(f"/documents/pages/{PAGE}/doc-updates/accept-all"),
         json_response(200, raw={"data": [UPDATE], "skipped": [{"id": "u-9", "code": "duplicate"}]}),
     )
     text = await fenced(client, "accept_all_doc_updates", "doc updates", page_id=PAGE)
@@ -396,7 +396,7 @@ async def test_accept_all_reports_skipped_rows(client: SlashClient, fake: FakeSl
 
 
 async def test_page_of_error_mentions_the_200_window(client: SlashClient, fake: FakeSlash):
-    fake.on("GET", ws_path(f"/wiki/pages/{PAGE}/doc-updates"), json_response(200, []))
+    fake.on("GET", ws_path(f"/documents/pages/{PAGE}/doc-updates"), json_response(200, []))
     assert "최근 200개 업데이트" in await call_error(
         client, "resolve_doc_update", update_id=UPD, page_id=PAGE, action="revert"
     )
@@ -416,9 +416,9 @@ async def test_handoff_and_verification_note_bodies_are_not_editable(client: Sla
 async def test_doc_update_revert_refresh_and_by_meeting(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path(f"/meetings/{MEETING}/doc-updates"), json_response(200, [UPDATE]))
     assert "[proposed]" in await fenced(client, "list_doc_updates", "doc updates", meeting_id=MEETING)
-    fake.on("GET", ws_path(f"/wiki/pages/{PAGE}/doc-updates"), json_response(200, [UPDATE]))
+    fake.on("GET", ws_path(f"/documents/pages/{PAGE}/doc-updates"), json_response(200, [UPDATE]))
     for action in ("revert", "refresh"):
-        fake.on("POST", ws_path(f"/wiki/doc-updates/{UPD}/{action}"), json_response(200, UPDATE))
+        fake.on("POST", ws_path(f"/documents/doc-updates/{UPD}/{action}"), json_response(200, UPDATE))
     assert (
         await fenced(client, "resolve_doc_update", "doc update", update_id=UPD, page_id=PAGE, action="revert")
     ).startswith("revert:")

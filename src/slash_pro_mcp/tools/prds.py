@@ -113,7 +113,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
                 if markdown:
                     await client.request(
                         "PUT",
-                        f"/wiki/pages/{await client.writable_page(page_id)}/content",
+                        f"/documents/pages/{await client.writable_page(page_id)}/content",
                         json={"format": "markdown", "content": markdown, "mode": "replace"},
                     )
                     done += 1

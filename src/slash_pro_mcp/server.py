@@ -16,7 +16,18 @@ from mcp.server.fastmcp import FastMCP
 from . import __version__
 from .client import SlashClient
 from .instructions import INSTRUCTIONS
-from .tools import meeting_agenda, meetings, outcomes, prds, projects, questions, search, ticket_extras, tickets, wiki
+from .tools import (
+    documents,
+    meeting_agenda,
+    meetings,
+    outcomes,
+    prds,
+    projects,
+    questions,
+    search,
+    ticket_extras,
+    tickets,
+)
 
 SERVER_NAME = "slash-pro"
 
@@ -25,14 +36,14 @@ GROUPS = {
     "projects": projects.register,
     "tickets": tickets.register,
     "meetings": meetings.register,
-    "wiki": wiki.register,
+    "documents": documents.register,
     "prds": prds.register,
     "questions": questions.register,
     "meeting_agenda": meeting_agenda.register,
     "outcomes": outcomes.register,
     "ticket_extras": ticket_extras.register,
     "search": search.register,
-    "doc_updates": wiki.register_doc_updates,
+    "doc_updates": documents.register_doc_updates,
 }
 
 

@@ -33,7 +33,7 @@ from .config import SlashConfig
 DEFAULT_TIMEOUT = httpx.Timeout(30.0, connect=10.0)
 REQUEST_DEADLINE_SECONDS = 60
 MAX_RESPONSE_BYTES = 10 * 1024 * 1024
-RULES_PATH = "/wiki/agent-instructions"
+RULES_PATH = "/documents/agent-instructions"
 RULES_PAGE_REFUSED = "이 페이지는 웹 앱에서 사람만 고칠 수 있음"
 _RAW_BODY_PREVIEW = 300
 MAX_ERROR_MESSAGE = 2000
@@ -131,7 +131,7 @@ class VersionConflict(SlashApiError):
 
 
 class NotFound(SlashApiError):
-    """A lookup this server does client-side (project key, wiki page) found nothing."""
+    """A lookup this server does client-side (project key, document) found nothing."""
 
     def __init__(self, message: str) -> None:
         super().__init__(status=404, message=message)
@@ -288,7 +288,7 @@ class SlashClient:
         return (await self.request("GET", path, params=params, **kw)).text
 
     async def fetch_rules(self) -> dict | None:
-        """`GET /wiki/agent-instructions`: `{pageId, title, body, truncated}`, or None when the
+        """`GET /documents/agent-instructions`: `{pageId, title, body, truncated}`, or None when the
         workspace has none. Raises on any failure, including a reply of another shape."""
         data = await self.get_data(RULES_PATH)
         if data is not None and not isinstance(data, dict):
@@ -296,7 +296,7 @@ class SlashClient:
         return data
 
     async def writable_page(self, page_id: object) -> str:
-        """Canonical page id for a wiki write, never the workspace rules page. The rules page is
+        """Canonical page id for a document write, never the workspace rules page. The rules page is
         looked up again on every call (it can be designated or changed at any time); if that
         lookup fails, the write is refused (fail closed)."""
         try:

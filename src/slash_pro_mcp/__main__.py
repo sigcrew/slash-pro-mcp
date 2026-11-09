@@ -21,7 +21,7 @@ Runs the SLASH MCP server over stdio. Configure it with environment variables:
   SLASH_PRO_TOKEN_FILE    path to a chmod 600 file holding it (default ~/.config/slash-pro/token)
   SLASH_PRO_API_URL       API root (default https://echo-api.slash.pro)
   SLASH_PRO_AGENT, SLASH_PRO_AGENT_MODEL, SLASH_PRO_REQUESTED_BY  optional labels
-  SLASH_PRO_TOOLS=tickets,wiki   register only these tool groups (default: all)
+  SLASH_PRO_TOOLS=tickets,documentsregister only these tool groups (default: all)
   SLASH_PRO_WORKSPACE_RULES=0    keep the workspace rules page out of the instructions
   SLASH_PRO_ALLOW_CUSTOM_API=<host>  dev/self-host: allow exactly this API host besides
                                      echo-api.slash.pro, loopback included (literal SLASH_PRO_TOKEN only)

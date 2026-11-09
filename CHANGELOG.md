@@ -3,6 +3,18 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- Wiki is now called documents. Tools renamed: `wiki_tree` → `document_tree`, `get_wiki_page` → `get_document`,
+  `search_wiki` → `search_documents`, `write_wiki_page` → `write_document`, `create_wiki_page` → `create_document`.
+  The tools call the server's new `/documents/...` routes (needs a SLASH server with the document rename).
+- Tool group `wiki` is now `documents`; token scopes are documented as `document:read` / `document:write`
+  (tokens holding the old `wiki:*` scopes keep working).
+
+### Deprecated
+- The old `wiki_*` tool names and the `wiki` tool group still work as aliases for one release.
+
 ## [0.1.0] - 2026-11-04
 
 ### Added
