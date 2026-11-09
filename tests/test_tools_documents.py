@@ -42,7 +42,7 @@ PAGES = [
 ]
 
 
-async def test_wiki_tree_resolves_project_and_indents_children(client: SlashClient, fake: FakeSlash):
+async def test_document_tree_resolves_project_and_indents_children(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     fake.on("GET", ws_path("/projects/p-demo/documents/tree"), json_response(200, PAGES))
 
@@ -55,13 +55,13 @@ async def test_wiki_tree_resolves_project_and_indents_children(client: SlashClie
     ]
 
 
-async def test_wiki_tree_unknown_project(client: SlashClient, fake: FakeSlash):
+async def test_document_tree_unknown_project(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
 
     assert "프로젝트 없음: NOPE" in await call_error(client, "document_tree", project_key="NOPE")
 
 
-async def test_get_wiki_page_renders_plain_text(client: SlashClient, fake: FakeSlash):
+async def test_get_document_renders_plain_text(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/documents/pages/root-b"), json_response(200, PAGES[2]))
 
     text = await call_untrusted(client, "get_document", page_id="root-b")
@@ -71,7 +71,7 @@ async def test_get_wiki_page_renders_plain_text(client: SlashClient, fake: FakeS
     )
 
 
-async def test_get_wiki_page_empty_body(client: SlashClient, fake: FakeSlash):
+async def test_get_document_empty_body(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/documents/pages/00000000-0000-7000-8000-000000000031"), json_response(200, PAGES[1]))
 
     assert (await call_untrusted(client, "get_document", page_id="00000000-0000-7000-8000-000000000031")).endswith(
@@ -79,7 +79,7 @@ async def test_get_wiki_page_empty_body(client: SlashClient, fake: FakeSlash):
     )
 
 
-async def test_search_wiki_across_project_matches_title_and_body(client: SlashClient, fake: FakeSlash):
+async def test_search_documents_across_project_matches_title_and_body(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     # the tree with `q` returns only the matching pages, without bodies
     fake.on("GET", ws_path("/projects/p-demo/documents/tree"), json_response(200, [{"id": p["id"]} for p in PAGES]))
@@ -96,7 +96,7 @@ async def test_search_wiki_across_project_matches_title_and_body(client: SlashCl
     )
 
 
-async def test_search_wiki_reads_at_most_20_pages(client: SlashClient, fake: FakeSlash):
+async def test_search_documents_reads_at_most_20_pages(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     fake.on("GET", ws_path("/projects/p-demo/documents/tree"), json_response(200, [{"id": f"p{i}"} for i in range(23)]))
     fake.on("GET", ws_path("/documents/pages/p[0-9]+"), json_response(200, {**PAGES[2], "id": "p"}))
@@ -105,7 +105,7 @@ async def test_search_wiki_reads_at_most_20_pages(client: SlashClient, fake: Fak
     assert text.endswith("… 일치하는 페이지 3개 더 있음(표시 안 함): text를 좁히기")
 
 
-async def test_search_wiki_within_one_page_and_no_match(client: SlashClient, fake: FakeSlash):
+async def test_search_documents_within_one_page_and_no_match(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/documents/pages/root-a"), json_response(200, PAGES[0]))
 
     assert (
@@ -116,12 +116,12 @@ async def test_search_wiki_within_one_page_and_no_match(client: SlashClient, fak
     assert not fake.calls_to("GET", ws_path("/projects"))
 
 
-async def test_search_wiki_requires_a_scope(client: SlashClient, fake: FakeSlash):
+async def test_search_documents_requires_a_scope(client: SlashClient, fake: FakeSlash):
     assert "project_key나 page_id가 필요함" in await call_error(client, "search_documents", text="x")
     assert "text가 비어 있음" in await call_error(client, "search_documents", text="  ", page_id="p")
 
 
-async def test_write_wiki_page_appends_markdown_with_source(client: SlashClient, fake: FakeSlash):
+async def test_write_document_appends_markdown_with_source(client: SlashClient, fake: FakeSlash):
     fake.on(
         "PUT",
         ws_path("/documents/pages/00000000-0000-7000-8000-000000000031/content"),
@@ -148,7 +148,7 @@ async def test_write_wiki_page_appends_markdown_with_source(client: SlashClient,
     assert "if-match" not in put.headers
 
 
-async def test_write_wiki_page_replace_and_validation(client: SlashClient, fake: FakeSlash):
+async def test_write_document_replace_and_validation(client: SlashClient, fake: FakeSlash):
     fake.on("PUT", ws_path("/documents/pages/00000000-0000-7000-8000-000000000031/content"), json_response(200, PAGES[1]))
 
     assert await call_untrusted(
@@ -163,7 +163,7 @@ async def test_write_wiki_page_replace_and_validation(client: SlashClient, fake:
     )
 
 
-async def test_write_wiki_page_error_passes_through(client: SlashClient, fake: FakeSlash):
+async def test_write_document_error_passes_through(client: SlashClient, fake: FakeSlash):
     fake.on(
         "PUT",
         ws_path("/documents/pages/00000000-0000-7000-8000-000000000031/content"),
@@ -178,7 +178,7 @@ async def test_write_wiki_page_error_passes_through(client: SlashClient, fake: F
 # -- create_document --------------------------------------------------------
 
 
-async def test_get_wiki_page_markdown_flag(client: SlashClient, fake: FakeSlash):
+async def test_get_document_markdown_flag(client: SlashClient, fake: FakeSlash):
     from tests.helpers import text_response
 
     fake.on("GET", ws_path("/documents/pages/p1"), text_response(200, "## 전략\n\n- [ ] 할 일"))
@@ -186,7 +186,7 @@ async def test_get_wiki_page_markdown_flag(client: SlashClient, fake: FakeSlash)
     assert fake.calls[-1].query == {"format": "markdown"}
 
 
-async def test_create_wiki_page_under_section_root(client: SlashClient, fake: FakeSlash):
+async def test_create_document_under_section_root(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     fake.on("POST", ws_path("/projects/p-demo/documents/ensure-roots"), json_response(200, None))
     fake.on(
@@ -213,7 +213,7 @@ async def test_create_wiki_page_under_section_root(client: SlashClient, fake: Fa
     )
 
 
-async def test_create_wiki_page_product_uses_strategy_doc_and_appends(client: SlashClient, fake: FakeSlash):
+async def test_create_document_product_uses_strategy_doc_and_appends(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     fake.on(
         "POST",
@@ -236,7 +236,7 @@ async def test_create_wiki_page_product_uses_strategy_doc_and_appends(client: Sl
     assert fake.calls[-1].body == {"format": "markdown", "content": "## 가설", "mode": "replace"}
 
 
-async def test_create_wiki_page_product_falls_back_to_append_when_human_wrote(client: SlashClient, fake: FakeSlash):
+async def test_create_document_product_falls_back_to_append_when_human_wrote(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     fake.on(
         "POST",
@@ -262,7 +262,7 @@ async def test_create_wiki_page_product_falls_back_to_append_when_human_wrote(cl
     assert unfence(text, "document write").startswith("제품 전략 페이지 작성")
 
 
-async def test_create_wiki_page_product_does_not_append_on_other_conflicts(client: SlashClient, fake: FakeSlash):
+async def test_create_document_product_does_not_append_on_other_conflicts(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
     fake.on(
         "POST",

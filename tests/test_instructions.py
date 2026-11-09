@@ -64,7 +64,7 @@ def test_compose_marks_truncation_and_caps_locally():
 
 
 @pytest.mark.asyncio
-async def test_fetch_reads_wiki_agent_instructions(client: SlashClient, fake: FakeSlash):
+async def test_fetch_reads_agent_instructions(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/documents/agent-instructions"), json_response(200, RULES))
 
     assert await fetch_agent_instructions(client) == RULES

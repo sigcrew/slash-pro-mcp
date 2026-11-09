@@ -18,7 +18,7 @@ PAGE = {
 
 
 @pytest.mark.asyncio
-async def test_wiki_body_and_body_only_search_from_camelcase(client, fake):
+async def test_document_body_and_body_only_search_from_camelcase(client, fake):
     fake.on("GET", ws_path("/documents/pages/page"), json_response(200, PAGE))
     text = await call_untrusted(client, "get_document", page_id="page")
     assert "출처: 팀장\n본문 검색어" in text
@@ -27,7 +27,7 @@ async def test_wiki_body_and_body_only_search_from_camelcase(client, fake):
 
 
 @pytest.mark.asyncio
-async def test_wiki_tree_preserves_parent_and_order(client, fake):
+async def test_document_tree_preserves_parent_and_order(client, fake):
     fake.on("GET", ws_path("/projects"), json_response(200, [{"id": "p", "key": "ABC"}]))
     fake.on(
         "GET",
