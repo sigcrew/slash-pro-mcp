@@ -21,7 +21,6 @@ from ..common import (
     tool_errors,
 )
 
-MAX_SEARCH_PAGES = 20
 # Deprecated wiki_* tool names → new names. Drop next release.
 ALIASES = {
     "wiki_tree": "document_tree",
@@ -56,24 +55,19 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     @mcp.tool(structured_output=False, annotations=READ)
     @tool_errors
     async def search_documents(text: str, project_key: str | None = None, page_id: str | None = None) -> str:
-        """Case-insensitive text search showing matching lines: in one page (page_id) or a project's pages
-        (project_key; the first 20 matching pages are read)."""
+        """Search documents, ranked by the server (title/body BM25, title match, recent use). project_key
+        narrows to one project (default: whole workspace). page_id: matching lines inside that one page."""
         text = text.strip()[:200]
         if not text:
             raise ValueError("text가 비어 있음")
         if page_id:
             page = await client.get_data(f"/documents/pages/{path_segment(page_id, 'page_id')}")
             return render.untrusted("document search", render.render_document_search(text, [page]))
-        if not project_key:
-            raise ValueError("project_key나 page_id가 필요함")
-        project = await client.resolve_project(project_key)
-        # `q` filters the tree on the server (ids and titles only); bodies are read page by page.
-        found = await client.get_data(f"/projects/{path_segment(project['id'])}/documents/tree", params={"q": text}) or []
-        pages = [await client.get_data(f"/documents/pages/{path_segment(p['id'])}") for p in found[:MAX_SEARCH_PAGES]]
-        out = render.render_document_search(text, pages)
-        if len(found) > MAX_SEARCH_PAGES:
-            out += f"\n\n… 일치하는 페이지 {len(found) - MAX_SEARCH_PAGES}개 더 있음(표시 안 함): text를 좁히기"
-        return render.untrusted("document search", out)
+        params: dict[str, Any] = {"q": text}
+        if project_key:
+            params["projectId"] = (await client.resolve_project(project_key))["id"]
+        found = await client.get_data("/documents/search", params=params) or {}
+        return render.untrusted("document search", render.render_ranked_documents(text, list(found.get("results") or [])))
 
     @mcp.tool(structured_output=False, annotations=DESTRUCTIVE)
     @tool_errors

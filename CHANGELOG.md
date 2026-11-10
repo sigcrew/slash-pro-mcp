@@ -12,6 +12,10 @@ All notable changes to this project are documented here. The format follows
 - Tool group `wiki` is now `documents`; token scopes are documented as `document:read` / `document:write`
   (tokens holding the old `wiki:*` scopes keep working).
 
+- `search_documents` uses the server's ranked document search (`GET /documents/search`: title/body BM25,
+  title match, recent use) instead of reading pages and matching client-side. `project_key` is optional
+  (whole workspace without it); `page_id` still lists matching lines in one page.
+
 ### Deprecated
 - The old `wiki_*` tool names and the `wiki` tool group still work as aliases for one release.
 

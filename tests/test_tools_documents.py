@@ -79,30 +79,30 @@ async def test_get_document_empty_body(client: SlashClient, fake: FakeSlash):
     )
 
 
-async def test_search_documents_across_project_matches_title_and_body(client: SlashClient, fake: FakeSlash):
+async def test_search_documents_uses_server_ranking_in_order(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
-    # the tree with `q` returns only the matching pages, without bodies
-    fake.on("GET", ws_path("/projects/p-demo/documents/tree"), json_response(200, [{"id": p["id"]} for p in PAGES]))
-    for page in PAGES:
-        fake.on("GET", ws_path(f"/documents/pages/{page['id']}"), json_response(200, page))
+    results = {
+        "results": [
+            {"id": "child", "title": "MCP 서버", "pageType": "GENERAL", "snippet": ""},
+            {"id": "root-a", "title": "결정", "pageType": "DECISION", "snippet": "MCP는 stdio"},
+        ],
+        "tookMs": 3,
+    }
+    fake.on("GET", ws_path("/documents/search"), json_response(200, results))
 
     text = await call_untrusted(client, "search_documents", text="mcp", project_key="ABC")
-    (tree,) = fake.calls_to("GET", ws_path("/projects/p-demo/documents/tree"))
-    assert tree.query == {"q": "mcp"}
-    assert len(fake.calls_to("GET", ws_path("/documents/pages/.*"))) == 3
 
-    assert text == (
-        "## 결정 `root-a`\n- L2: MCP는 stdio\n\n## MCP 서버 `00000000-0000-7000-8000-000000000031`\n\n## 회의록 `root-b`\n- L1: 회의에서 mcp 얘기"
-    )
+    assert text == "- MCP 서버 `child` (GENERAL)\n- 결정 `root-a` (DECISION)\n  MCP는 stdio"
+    (req,) = fake.calls_to("GET", ws_path("/documents/search"))
+    assert req.query == {"q": "mcp", "projectId": "p-demo"}
+    assert not fake.calls_to("GET", ws_path("/projects/p-demo/documents/tree"))
 
 
-async def test_search_documents_reads_at_most_20_pages(client: SlashClient, fake: FakeSlash):
-    fake.on("GET", ws_path("/projects"), json_response(200, PROJECTS))
-    fake.on("GET", ws_path("/projects/p-demo/documents/tree"), json_response(200, [{"id": f"p{i}"} for i in range(23)]))
-    fake.on("GET", ws_path("/documents/pages/p[0-9]+"), json_response(200, {**PAGES[2], "id": "p"}))
-    text = await call_untrusted(client, "search_documents", text="mcp", project_key="ABC")
-    assert len(fake.calls_to("GET", ws_path("/documents/pages/.*"))) == 20
-    assert text.endswith("… 일치하는 페이지 3개 더 있음(표시 안 함): text를 좁히기")
+async def test_search_documents_workspace_wide(client: SlashClient, fake: FakeSlash):
+    fake.on("GET", ws_path("/documents/search"), json_response(200, {"results": [], "tookMs": 1}))
+    assert await call_untrusted(client, "search_documents", text="없는말") == "'없는말' 일치 없음"
+    (req,) = fake.calls_to("GET", ws_path("/documents/search"))
+    assert req.query == {"q": "없는말"}
 
 
 async def test_search_documents_within_one_page_and_no_match(client: SlashClient, fake: FakeSlash):
@@ -116,8 +116,7 @@ async def test_search_documents_within_one_page_and_no_match(client: SlashClient
     assert not fake.calls_to("GET", ws_path("/projects"))
 
 
-async def test_search_documents_requires_a_scope(client: SlashClient, fake: FakeSlash):
-    assert "project_key나 page_id가 필요함" in await call_error(client, "search_documents", text="x")
+async def test_search_documents_rejects_blank_text(client: SlashClient, fake: FakeSlash):
     assert "text가 비어 있음" in await call_error(client, "search_documents", text="  ", page_id="p")
 
 

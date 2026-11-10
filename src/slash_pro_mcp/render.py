@@ -503,3 +503,15 @@ def render_doc_updates(rows: list[dict]) -> str:
     if not rows:
         return "(문서 업데이트 없음)"
     return "\n".join(doc_update_line(row) for row in rows)
+
+
+def render_ranked_documents(query: str, results: list[dict]) -> str:
+    """Server document search results, in the server's order: title `id` (type) + body excerpt."""
+    if not results:
+        return f"'{query}' 일치 없음"
+    lines = []
+    for r in results:
+        lines.append(f"- {r.get('title', '')} `{r.get('id', '')}` ({wire_field(r, 'pageType') or ''})")
+        if r.get("snippet"):
+            lines.append(f"  {r['snippet']}")
+    return "\n".join(lines)

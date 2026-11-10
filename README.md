@@ -234,7 +234,7 @@ Tools return markdown. Output that contains text from the workspace is wrapped i
 | | `add_agenda_item` | write | Agenda line for the next occurrence of a recurring meeting |
 | Documents | `document_tree` | read | A project's page tree |
 | | `get_document` | read | Page body (plain text or markdown) |
-| | `search_documents` | read | Matching lines in one page, or in the project's pages the server finds for the text |
+| | `search_documents` | read | Documents ranked by the server (title/body match, recent use), optionally in one project; or matching lines in one page |
 | | `write_document` | write | Append to or replace a page body |
 | | `create_document` | write | New page under a section root |
 | | `list_doc_updates` | read | AI doc-update proposals for a page or produced by a meeting (by meeting: `document:read` and `meetings:read`) |
