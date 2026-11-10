@@ -25,7 +25,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         sort: str = "relevance",
         limit: int = 8,
     ) -> str:
-        """Workspace search over titles, bodies, transcripts and decisions; every word must match. Needs wiki:read
+        """Workspace search over titles, bodies, transcripts and decisions; every word must match. Needs document:read
         plus each kind's read scope. kinds: ticket|outcome|doc|meeting (default all). date_from / date_to: YYYY-MM-DD (KST)
         or ISO datetime. sort: relevance|recent. limit: max 30 per kind."""
         if not query.strip():

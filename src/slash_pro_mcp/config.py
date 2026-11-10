@@ -12,7 +12,7 @@
 | Rules        | `SLASH_PRO_WORKSPACE_RULES=0` skips the workspace rules page |
 | Custom host  | `SLASH_PRO_ALLOW_CUSTOM_API=<host>` allows exactly that API  |
 |              | host besides `echo-api.slash.pro`, loopback included         |
-| Tool groups  | `SLASH_PRO_TOOLS=tickets,wiki` registers only those groups   |
+| Tool groups  | `SLASH_PRO_TOOLS=tickets,documents` registers only those groups |
 
 The token is never logged, printed or included in `repr`. A custom API host (development /
 self-hosting only, loopback included) accepts only a literal `SLASH_PRO_TOKEN`; no token file is
@@ -41,7 +41,7 @@ TOOL_GROUPS = (
     "questions",
     "meetings",
     "meeting_agenda",
-    "wiki",
+    "documents",
     "doc_updates",
     "prds",
     "outcomes",
@@ -119,8 +119,9 @@ def check_api_url(raw: str, *, allow_custom: str = "") -> tuple[str, bool]:
 
 
 def check_tool_groups(raw: str) -> frozenset[str] | None:
-    """`"tickets, wiki"` → those groups; empty or `all` → None (every group)."""
+    """`"tickets, documents"` → those groups; empty or `all` → None (every group)."""
     names = {n.strip().lower() for n in raw.split(",") if n.strip()}
+    names = {"documents" if n == "wiki" else n for n in names}  # old group name, one release
     if not names or "all" in names:
         return None
     unknown = sorted(names - set(TOOL_GROUPS))

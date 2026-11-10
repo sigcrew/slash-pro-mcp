@@ -85,9 +85,9 @@ class FakeSlash:
         self.rules(None)
 
     def rules(self, page_id: str | None, **extra: Any) -> None:
-        """`GET /wiki/agent-instructions`: no rules page by default, or one with `page_id`."""
+        """`GET /documents/agent-instructions`: no rules page by default, or one with `page_id`."""
         data = {"pageId": page_id, "title": "rules", "body": "rules body", **extra} if page_id else None
-        self.on("GET", ws_path("/wiki/agent-instructions"), json_response(200, data))
+        self.on("GET", ws_path("/documents/agent-instructions"), json_response(200, data))
 
     def on(self, method: str, path_pattern: str, handler: Handler | httpx.Response) -> None:
         """Register a route; registering the same (method, pattern) again replaces it
@@ -173,9 +173,9 @@ UNTRUSTED_SOURCES = {
     "find_transcript_excerpts": "meeting transcript",
     "get_prd": "prd",
     "list_prds": "prd list",
-    "get_wiki_page": "wiki page",
-    "wiki_tree": "wiki tree",
-    "search_wiki": "wiki search",
+    "get_document": "document page",
+    "document_tree": "document tree",
+    "search_documents": "document search",
     "list_handoffs": "handoffs",
     "list_questions": "questions",
     "ask_questions": "questions",
@@ -183,7 +183,7 @@ UNTRUSTED_SOURCES = {
     "add_agenda_item": "agenda",
     "start_verification": "verification",
     "add_verification": "verification",
-    "write_wiki_page": "wiki write",
+    "write_document": "document write",
     "assign_ticket_prd": "prd write",
     "relate_ticket": "ticket write",
 }

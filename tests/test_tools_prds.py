@@ -135,7 +135,7 @@ async def test_create_prd_with_markdown_replaces_skeleton(client: SlashClient, f
     fake.on("POST", ws_path("/projects/p-demo/prds"), json_response(201, prd(ticketTotal=0, ticketDone=0)))
     fake.on(
         "PUT",
-        ws_path("/wiki/pages/00000000-0000-7000-8000-000000000033/content"),
+        ws_path("/documents/pages/00000000-0000-7000-8000-000000000033/content"),
         json_response(200, {"id": "00000000-0000-7000-8000-000000000033"}),
     )
     md = "## 문제\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n- [ ] 할 일"

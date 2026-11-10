@@ -18,20 +18,20 @@ PAGE = {
 
 
 @pytest.mark.asyncio
-async def test_wiki_body_and_body_only_search_from_camelcase(client, fake):
-    fake.on("GET", ws_path("/wiki/pages/page"), json_response(200, PAGE))
-    text = await call_untrusted(client, "get_wiki_page", page_id="page")
+async def test_document_body_and_body_only_search_from_camelcase(client, fake):
+    fake.on("GET", ws_path("/documents/pages/page"), json_response(200, PAGE))
+    text = await call_untrusted(client, "get_document", page_id="page")
     assert "출처: 팀장\n본문 검색어" in text
     assert "유형: general · 회의: meeting · 수정: 2026-09-19" in text
-    assert "L2: 본문 검색어" in await call(client, "search_wiki", page_id="page", text="검색어")
+    assert "L2: 본문 검색어" in await call(client, "search_documents", page_id="page", text="검색어")
 
 
 @pytest.mark.asyncio
-async def test_wiki_tree_preserves_parent_and_order(client, fake):
+async def test_document_tree_preserves_parent_and_order(client, fake):
     fake.on("GET", ws_path("/projects"), json_response(200, [{"id": "p", "key": "ABC"}]))
     fake.on(
         "GET",
-        ws_path("/projects/p/wiki/tree"),
+        ws_path("/projects/p/documents/tree"),
         json_response(
             200,
             [
@@ -46,7 +46,7 @@ async def test_wiki_tree_preserves_parent_and_order(client, fake):
             ],
         ),
     )
-    text = await call_untrusted(client, "wiki_tree", project_key="ABC")
+    text = await call_untrusted(client, "document_tree", project_key="ABC")
     assert text.splitlines() == ["- 부모 (root) `root`", "  - 규칙 (general) `page`"]
 
 

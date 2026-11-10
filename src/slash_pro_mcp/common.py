@@ -157,9 +157,9 @@ def check_choice(name: str, value: str, allowed: tuple[str, ...]) -> str:
     return value
 
 
-# Wiki section (fixed root) -> server page_type. `product` cannot hold child pages: it maps to
+# Document section (fixed root) -> server page_type. `product` cannot hold child pages: it maps to
 # the project's single product strategy page (ensure-one-pager).
-WIKI_SECTIONS = {
+DOCUMENT_SECTIONS = {
     "product": "product",
     "feature-specs": "feature_spec",
     "technical-docs": "technical",
