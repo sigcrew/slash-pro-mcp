@@ -268,4 +268,6 @@ async def test_deeply_nested_rules_reply_fails_closed_without_a_traceback(client
     )
     assert "확인하지 못함" in await call_error(client, "write_document", page_id=OTHER_PAGE_ID, markdown="x")
     assert await load_instructions(client) == INSTRUCTIONS
-    assert "RecursionError" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "could not read the workspace rules" in err  # RecursionError or ValueError, by Python version
+    assert "Traceback" not in err
