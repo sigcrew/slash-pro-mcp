@@ -3,7 +3,7 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.0] - 2026-11-10
 
 ### Changed
 - Wiki is now called documents. Tools renamed: `wiki_tree` → `document_tree`, `get_wiki_page` → `get_document`,
@@ -19,12 +19,10 @@ All notable changes to this project are documented here. The format follows
 ### Deprecated
 - The old `wiki_*` tool names and the `wiki` tool group still work as aliases for one release.
 
-## [0.1.0] - 2026-11-04
-
 ### Added
 - First public release: a stdio MCP server (`slash-pro-mcp`, server name `slash-pro`) with 50 tools:
   - tickets, verification, handoffs and readiness questions
-  - meetings, wiki pages, PRDs and projects
+  - meetings, documents, PRDs and projects
   - outcomes: `list_outcomes`, `get_outcome` (key or id), `create_outcome`, `update_outcome`, `add_outcome_evidence`, `add_ticket_to_outcome`, `remove_ticket_from_outcome`
   - ticket extras:
     - `replace_checklist`: agent rows only; people's rows and review results are preserved
