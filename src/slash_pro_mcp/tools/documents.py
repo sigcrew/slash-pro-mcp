@@ -67,7 +67,9 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         if project_key:
             params["projectId"] = (await client.resolve_project(project_key))["id"]
         found = await client.get_data("/documents/search", params=params) or {}
-        return render.untrusted("document search", render.render_ranked_documents(text, list(found.get("results") or [])))
+        return render.untrusted(
+            "document search", render.render_ranked_documents(text, list(found.get("results") or []))
+        )
 
     @mcp.tool(structured_output=False, annotations=DESTRUCTIVE)
     @tool_errors
@@ -80,9 +82,13 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         body: dict[str, Any] = {"format": "markdown", "content": markdown, "mode": mode}
         if source:
             body["source"] = source
-        response = await client.request("PUT", f"/documents/pages/{await client.writable_page(page_id)}/content", json=body)
+        response = await client.request(
+            "PUT", f"/documents/pages/{await client.writable_page(page_id)}/content", json=body
+        )
         page = response.data or {}
-        return render.untrusted("document write", f"문서 {mode}: {page.get('title', page_id)} `{page.get('id', page_id)}`")
+        return render.untrusted(
+            "document write", f"문서 {mode}: {page.get('title', page_id)} `{page.get('id', page_id)}`"
+        )
 
     @mcp.tool(structured_output=False, annotations=DESTRUCTIVE)
     @tool_errors

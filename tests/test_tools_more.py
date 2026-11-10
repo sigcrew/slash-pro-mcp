@@ -349,7 +349,9 @@ async def test_doc_updates_list_and_accept(client: SlashClient, fake: FakeSlash)
     fake.on("GET", ws_path(f"/documents/pages/{PAGE}/doc-updates"), json_response(200, [UPDATE]))
     text = await fenced(client, "list_doc_updates", "doc updates", page_id=PAGE)
     assert text == f"- [proposed] append @ 결정: stdio로 간다 (id {UPD}, 페이지 {PAGE}, 회의 스크럼)"
-    fake.on("POST", ws_path(f"/documents/doc-updates/{UPD}/accept"), json_response(200, {**UPDATE, "state": "accepted"}))
+    fake.on(
+        "POST", ws_path(f"/documents/doc-updates/{UPD}/accept"), json_response(200, {**UPDATE, "state": "accepted"})
+    )
     assert (
         await fenced(client, "resolve_doc_update", "doc update", update_id=UPD, page_id=PAGE, action="accept")
     ).startswith("accept: - [accepted]")
@@ -379,7 +381,9 @@ async def test_reject_checks_the_page_and_refresh_needs_none(client: SlashClient
         client, "resolve_doc_update", update_id=UPD, page_id=RULES, action="reject"
     )
     fake.on("GET", ws_path(f"/documents/pages/{PAGE}/doc-updates"), json_response(200, [UPDATE]))
-    fake.on("POST", ws_path(f"/documents/doc-updates/{UPD}/reject"), json_response(200, {**UPDATE, "state": "rejected"}))
+    fake.on(
+        "POST", ws_path(f"/documents/doc-updates/{UPD}/reject"), json_response(200, {**UPDATE, "state": "rejected"})
+    )
     assert "[rejected]" in await call(client, "resolve_doc_update", update_id=UPD, page_id=PAGE, action="reject")
     assert "잘못된 update_id" in await call_error(client, "refresh_doc_update", update_id="../x")
 

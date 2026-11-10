@@ -235,7 +235,9 @@ async def test_product_one_pager_that_is_the_rules_page_is_refused(client: Slash
 
 @pytest.mark.asyncio
 async def test_rules_page_id_in_snake_case_is_protected(client: SlashClient, fake: FakeSlash):
-    fake.on("GET", ws_path("/documents/agent-instructions"), json_response(200, {"page_id": RULES_PAGE_ID, "body": "b"}))
+    fake.on(
+        "GET", ws_path("/documents/agent-instructions"), json_response(200, {"page_id": RULES_PAGE_ID, "body": "b"})
+    )
     assert "사람만 고칠 수 있음" in await call_error(client, "write_document", page_id=RULES_PAGE_ID, markdown="x")
 
 

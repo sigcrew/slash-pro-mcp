@@ -148,7 +148,9 @@ async def test_write_document_appends_markdown_with_source(client: SlashClient, 
 
 
 async def test_write_document_replace_and_validation(client: SlashClient, fake: FakeSlash):
-    fake.on("PUT", ws_path("/documents/pages/00000000-0000-7000-8000-000000000031/content"), json_response(200, PAGES[1]))
+    fake.on(
+        "PUT", ws_path("/documents/pages/00000000-0000-7000-8000-000000000031/content"), json_response(200, PAGES[1])
+    )
 
     assert await call_untrusted(
         client, "write_document", page_id="00000000-0000-7000-8000-000000000031", markdown="본문", mode="replace"
