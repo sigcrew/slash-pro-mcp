@@ -29,7 +29,7 @@ All notable changes to this project are documented here. The format follows
     - `list_evidence`, `add_evidence`, and `delete_evidence` (this session's evidence only)
     - `update_note` / `delete_note` (only notes this agent wrote in the current session)
     - `delete_relation`
-  - `search`; `get_meeting(part=overview|minutes|summary)`; `list_meetings(upcoming=True)`
+  - `search` (`person`: one member's tickets, docs, outcomes and meetings); `get_meeting(part=overview|minutes|summary)`; `list_meetings(upcoming=True)`
   - `update_ticket` (status, assignee, due date); `update_handoff(action=claim|heartbeat|complete|block)`
   - AI doc updates: `list_doc_updates`, `resolve_doc_update(action=accept|revert|reject)`, `accept_all_doc_updates`, `refresh_doc_update`; page-changing actions go through the workspace-rules-page guard
 - `SLASH_PRO_TOOLS`: register only the named tool groups (e.g. `tickets,wiki`); default all.

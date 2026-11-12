@@ -218,7 +218,7 @@ Tools return markdown. Output that contains text from the workspace is wrapped i
 | | `create_outcome` · `update_outcome` | write | Create (`draft` / `executing` / `paused`) or edit fields (revision checked) |
 | | `add_outcome_evidence` | write | Evidence for an outcome |
 | | `add_ticket_to_outcome` · `remove_ticket_from_outcome` | write | Ticket membership (`tickets:read`, `tickets:write` and `document:read`); `move=True` moves a ticket from another outcome |
-| Search | `search` | read | Workspace search over tickets, outcomes, docs and meetings (titles and content) |
+| Search | `search` | read | Workspace search over tickets, outcomes, docs and meetings (titles and content); `person` narrows to one member (ticket assignee or creator) |
 | Verification | `start_verification` | write | Pin commits and answers before verifying |
 | | `add_verification` | write | Structured verification report (typed schema matching the server's) |
 | Handoffs | `add_handoff` | write | Structured handoff to another agent or role |

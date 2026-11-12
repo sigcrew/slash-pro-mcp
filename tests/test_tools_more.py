@@ -303,6 +303,14 @@ async def test_search_forwards_filters(client: SlashClient, fake: FakeSlash):
     assert "알 수 없는 kind" in await call_error(client, "search", query="x", kinds=["user"])
 
 
+async def test_search_by_person_resolves_member_name(client: SlashClient, fake: FakeSlash):
+    fake.on("GET", ws_path("/assignees"), json_response(200, [{"id": "u-hong", "name": "홍길동"}]))
+    fake.on("GET", ws_path("/search"), json_response(200, {"results": [], "contentReady": True}))
+    await call(client, "search", query="온보딩", person="홍길동")
+    assert fake.calls_to("GET", ws_path("/search"))[0].query["person"] == "u-hong"
+    assert "맞는 활성 멤버 없음" in await call_error(client, "search", query="x", person="없는사람")
+
+
 async def test_upcoming_and_summary(client: SlashClient, fake: FakeSlash):
     fake.on("GET", ws_path("/meetings/upcoming"), json_response(200, []))
     assert await fenced(client, "list_meetings", "meeting list", upcoming=True, limit=500) == "(회의 없음)"
