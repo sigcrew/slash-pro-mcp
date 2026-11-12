@@ -209,7 +209,7 @@ def test_tool_groups():
     assert load_config(base()).tools is None
     assert load_config(base(SLASH_PRO_TOOLS="all")).tools is None
     assert load_config(base(SLASH_PRO_TOOLS="all,tickets")).tools is None
-    assert load_config(base(SLASH_PRO_TOOLS=" Tickets, wiki ,")).tools == {"tickets", "documents"}
+    assert load_config(base(SLASH_PRO_TOOLS=" Tickets, documents ,")).tools == {"tickets", "documents"}
     with pytest.raises(ConfigError, match="unknown SLASH_PRO_TOOLS group: nope"):
         load_config(base(SLASH_PRO_TOOLS="tickets,nope"))
 

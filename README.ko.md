@@ -50,7 +50,7 @@ SLASH_PRO_WORKSPACE_ID = "<워크스페이스-uuid>"
 | `SLASH_PRO_API_URL` | `https://echo-api.slash.pro` | API 주소. 커스텀 호스트를 허용하지 않았다면 `https://echo-api.slash.pro`(경로는 자유)만 허용. 호스트는 소문자 ASCII |
 | `SLASH_PRO_ALLOW_CUSTOM_API` | — | **개발·자체 호스팅 전용.** 허용할 호스트를 정확히 적음(예: `localhost`, `api.example.com`; `1`은 거부). 루프백(localhost·127.0.0.1·[::1])도 이 설정이 필요하고, `http://`는 루프백에서만 허용. 이때 토큰은 `SLASH_PRO_TOKEN` 값으로만 받고, 토큰 파일(기본·이전·`SLASH_PRO_TOKEN_FILE`)은 절대 읽지 않음 |
 | `SLASH_PRO_WORKSPACE_RULES` | `1` | `0`이면 규칙 본문을 instructions에 넣지 않음(에이전트 편집 차단은 그대로) |
-| `SLASH_PRO_TOOLS` | 전체 | 등록할 툴 그룹(쉼표 구분). 툴 목록과 컨텍스트 비용을 줄일 때: `projects`, `tickets`, `ticket_extras`, `questions`, `meetings`, `meeting_agenda`, `documents`(옛 이름 `wiki`도 받음), `doc_updates`, `prds`, `outcomes`, `search`. 모르는 이름이면 시작하지 않음 |
+| `SLASH_PRO_TOOLS` | 전체 | 등록할 툴 그룹(쉼표 구분). 툴 목록과 컨텍스트 비용을 줄일 때: `projects`, `tickets`, `ticket_extras`, `questions`, `meetings`, `meeting_agenda`, `documents`, `doc_updates`, `prds`, `outcomes`, `search`. 모르는 이름이면 시작하지 않음 |
 | `SLASH_PRO_AGENT` | — | `list_handoffs`에 `to`가 없을 때 볼 받는 이 라벨. 없으면 모든 받는 이의 인계를 보여 줌. 맡기·노트는 항상 토큰 라벨로 기록 |
 | `SLASH_PRO_AGENT_MODEL` | — | 모델 별칭. `X-Agent-Model`로 보내 활동 기록에 남김 |
 | `SLASH_PRO_REQUESTED_BY` | — | 요청자 표시를 명시적으로 덮어쓸 때만 사용. 기본은 서버가 토큰 주인으로 정함 |

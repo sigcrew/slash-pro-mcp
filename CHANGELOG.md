@@ -16,9 +16,6 @@ All notable changes to this project are documented here. The format follows
   title match, recent use) instead of reading pages and matching client-side. `project_key` is optional
   (whole workspace without it); `page_id` still lists matching lines in one page.
 
-### Deprecated
-- The old `wiki_*` tool names and the `wiki` tool group still work as aliases for one release.
-
 ### Added
 - First public release: a stdio MCP server (`slash-pro-mcp`, server name `slash-pro`) with 50 tools:
   - tickets, verification, handoffs and readiness questions
@@ -32,7 +29,7 @@ All notable changes to this project are documented here. The format follows
   - `search`; `get_meeting(part=overview|minutes|summary)`; `list_meetings(upcoming=True)`
   - `update_ticket` (status, assignee, due date); `update_handoff(action=claim|heartbeat|complete|block)`
   - AI doc updates: `list_doc_updates`, `resolve_doc_update(action=accept|revert|reject)`, `accept_all_doc_updates`, `refresh_doc_update`; page-changing actions go through the workspace-rules-page guard
-- `SLASH_PRO_TOOLS`: register only the named tool groups (e.g. `tickets,wiki`); default all.
+- `SLASH_PRO_TOOLS`: register only the named tool groups (e.g. `tickets,documents`); default all.
 - Tool results and tool error messages are in Korean (identifiers, enum values, parameter names and ticket keys unchanged); tool descriptions stay in English.
 - English tool descriptions limited to API semantics, MCP tool annotations (`readOnlyHint` / `destructiveHint` / `idempotentHint`), and `serverInfo.version` set to the package version.
 - `add_verification` takes a typed report matching the server's schema (enums visible in the JSON schema).
