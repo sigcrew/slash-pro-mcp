@@ -123,8 +123,11 @@ async def test_list_tickets_assignee_and_blocked_filters(client: SlashClient, fa
         "assignee_id": "u-hong",
         "is_blocked": "true",
     }
-    text = await call_error(client, "list_tickets", assignee="me")
-    assert "이름이나 user id로 지정" in text
+    fake.on("GET", ws_path("/assignees/me"), json_response(200, {"id": "u-me", "name": "나"}))
+    await call_untrusted(client, "list_tickets", assignee="me")
+    await call_untrusted(client, "list_tickets", assignee=" 나 ")
+    assert fake.calls_to("GET", ws_path("/tickets"))[-1].query["assignee_id"] == "u-me"
+    assert len(fake.calls_to("GET", ws_path("/assignees/me"))) == 1  # cached per process
 
 
 async def test_list_tickets_single_status_is_pushed_to_the_api(client: SlashClient, fake: FakeSlash):

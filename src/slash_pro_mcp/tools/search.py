@@ -28,7 +28,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
     ) -> str:
         """Workspace search over titles, bodies, transcripts and decisions; every word must match. Needs document:read
         plus each kind's read scope. kinds: ticket|outcome|doc|meeting (default all). date_from / date_to: YYYY-MM-DD (KST)
-        or ISO datetime. person: member name or user id (not 'me'): tickets they are assigned to or created, docs they
+        or ISO datetime. person: member name, user id or 'me': tickets they are assigned to or created, docs they
         created, outcomes they own, meetings they attended. sort: relevance|recent. limit: max 30 per kind."""
         if not query.strip():
             raise ValueError("query가 비어 있음")

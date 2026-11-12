@@ -40,6 +40,7 @@ MAX_ERROR_MESSAGE = 2000
 MAX_SHOWN_ID = 40
 MAX_ERROR_LINES = 20
 MAX_ERROR_LINE = 500
+ME = ("me", "나", "내")
 MAX_CANDIDATES = 10
 # Ids, ticket keys and calendar event ids: no `/`, `?`, `#`, `%` or leading dot.
 _SEGMENT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.@:-]{0,255}")
@@ -233,6 +234,7 @@ class SlashClient:
         # may edit or delete.
         self.own_notes: dict[str, str] = {}
         self.own_evidence_ids: set[str] = set()
+        self._me: dict | None = None
 
     def remember_note(self, data: object, kind: str) -> None:
         if isinstance(data, dict) and data.get("id"):
@@ -365,11 +367,16 @@ class SlashClient:
     # -- people ------------------------------------------------------------
 
     async def resolve_assignee(self, value: str) -> dict:
-        """A person (name or user id) -> `{id, name}`, chosen from active members (`GET /assignees`).
+        """A person (name, user id, or me/나/내 = the token owner) -> `{id, name}`, chosen from active members
+        (`GET /assignees`).
 
-        Same id wins; otherwise an exact name match (ignoring spaces and case); otherwise a name
+        me -> `GET /assignees/me`, cached per process. Same id wins; otherwise an exact name match (ignoring spaces and case); otherwise a name
         containing `value`, if exactly one. None or several -> `ValueError` listing candidates."""
         wanted = value.strip()
+        if wanted.lower() in ME:
+            if self._me is None:
+                self._me = await self.get_data("/assignees/me")
+            return self._me
         members = list(await self.get_data("/assignees") or [])
         for member in members:
             if str(member.get("id")) == wanted:
