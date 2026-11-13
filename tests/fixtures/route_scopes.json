@@ -6,6 +6,7 @@
   "GET /meetings/{resource_id}": "meetings:read",
   "GET /meetings/{resource_id}/summary": "meetings:read",
   "GET /workspaces/{workspace_id}/assignees": "tickets:read",
+  "GET /workspaces/{workspace_id}/assignees/me": "tickets:read",
   "GET /workspaces/{workspace_id}/documents/agent-instructions": "document:read",
   "GET /workspaces/{workspace_id}/documents/pages/{page_id}": "document:read",
   "GET /workspaces/{workspace_id}/documents/pages/{page_id}/doc-updates": "document:read",

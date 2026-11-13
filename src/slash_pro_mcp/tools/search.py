@@ -22,12 +22,14 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         project_key: str | None = None,
         date_from: str | None = None,
         date_to: str | None = None,
+        person: str | None = None,
         sort: str = "relevance",
         limit: int = 8,
     ) -> str:
         """Workspace search over titles, bodies, transcripts and decisions; every word must match. Needs document:read
         plus each kind's read scope. kinds: ticket|outcome|doc|meeting (default all). date_from / date_to: YYYY-MM-DD (KST)
-        or ISO datetime. sort: relevance|recent. limit: max 30 per kind."""
+        or ISO datetime. person: member name, user id or 'me': tickets they are assigned to or created, docs they
+        created, outcomes they own, meetings they attended. sort: relevance|recent. limit: max 30 per kind."""
         if not query.strip():
             raise ValueError("query가 비어 있음")
         params: dict[str, Any] = {"q": query.strip()[:200], "limit": max(1, min(int(limit), 30))}
@@ -43,6 +45,8 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
             params["kind"] = wanted
         if project_key:
             params["project"] = path_segment((await client.resolve_project(project_key))["id"])
+        if person and person.strip():
+            params["person"] = path_segment((await client.resolve_assignee(person))["id"])
         for name, value in (("from", date_from), ("to", date_to)):
             if value and value.strip():
                 params[name] = value.strip()

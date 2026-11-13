@@ -103,7 +103,7 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         limit: int = 50,
     ) -> str:
         """List tickets, newest first; the whole workspace unless project_key. status: `todo,in_progress` (default),
-        any comma list (canceled included) or `all`. prd: PRD page id or `none`. assignee: member name or user id (not 'me').
+        any comma list (canceled included) or `all`. prd: PRD page id or `none`. assignee: member name, user id or 'me'.
         blocked: true = blocked only, false = unblocked only. limit: max 200."""
         wanted = split_statuses(status)
         limit = max(1, min(int(limit), MAX_LIST_LIMIT))
@@ -111,9 +111,6 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         if prd and prd.strip():
             params["prd_page_id"] = prd.strip()
         if assignee and assignee.strip():
-            if assignee.strip().lower() in ("me", "나", "내"):
-                # No token-accessible "who am I" endpoint exists to map the token owner to a user id.
-                raise ValueError("assignee='me'는 아직 지원하지 않음: 이름이나 user id로 지정")
             params["assignee_id"] = (await client.resolve_assignee(assignee))["id"]
         if blocked is not None:
             params["is_blocked"] = "true" if blocked else "false"
