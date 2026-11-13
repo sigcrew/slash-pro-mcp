@@ -278,14 +278,3 @@ async def test_create_document_product_does_not_append_on_other_conflicts(client
     text = await call_error(client, "create_document", project_key="ABC", section="product", title="x", markdown="y")
     assert "code: document_busy" in text
     assert len(fake.calls_to("PUT", ".*")) == 1
-
-
-async def test_old_wiki_tool_names_are_deprecated_aliases(client: SlashClient):
-    from slash_pro_mcp.server import build_server
-    from slash_pro_mcp.tools.documents import ALIASES
-
-    tools = {t.name: t for t in await build_server(client).list_tools()}
-    for old, new in ALIASES.items():
-        assert old in tools and new in tools
-        assert tools[old].inputSchema == tools[new].inputSchema
-        assert new in tools[old].description

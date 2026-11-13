@@ -1,6 +1,4 @@
-"""Document tools: tree/page/search (read), write_document·create_document (write).
-
-Old wiki_* names stay registered as deprecated aliases for one release (`ALIASES`)."""
+"""Document tools: tree/page/search (read), write_document·create_document (write)."""
 
 from __future__ import annotations
 
@@ -20,15 +18,6 @@ from ..common import (
     check_choice,
     tool_errors,
 )
-
-# Deprecated wiki_* tool names → new names. Drop next release.
-ALIASES = {
-    "wiki_tree": "document_tree",
-    "get_wiki_page": "get_document",
-    "search_wiki": "search_documents",
-    "write_wiki_page": "write_document",
-    "create_wiki_page": "create_document",
-}
 
 
 def register(mcp: FastMCP, client: SlashClient) -> None:
@@ -149,17 +138,6 @@ def register(mcp: FastMCP, client: SlashClient) -> None:
         ).data
         return render.untrusted(
             "document write", f"문서 생성: {created.get('title', title)} `{created['id']}` ({section})"
-        )
-
-    # Old names, kept for one release so existing agent configs keep working.
-    for old_name, new_name in ALIASES.items():
-        tool = mcp._tool_manager.get_tool(new_name)
-        mcp.add_tool(
-            tool.fn,
-            name=old_name,
-            description=f"Deprecated alias of `{new_name}` (removed next release).",
-            annotations=tool.annotations,
-            structured_output=False,
         )
 
 

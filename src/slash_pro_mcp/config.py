@@ -121,7 +121,6 @@ def check_api_url(raw: str, *, allow_custom: str = "") -> tuple[str, bool]:
 def check_tool_groups(raw: str) -> frozenset[str] | None:
     """`"tickets, documents"` → those groups; empty or `all` → None (every group)."""
     names = {n.strip().lower() for n in raw.split(",") if n.strip()}
-    names = {"documents" if n == "wiki" else n for n in names}  # old group name, one release
     if not names or "all" in names:
         return None
     unknown = sorted(names - set(TOOL_GROUPS))
