@@ -17,26 +17,26 @@
 # 가장 간단한 방법: 링크와 코드가 나오면 브라우저에서 승인 (서버에 /device-codes 필요).
 # 토큰이 ~/.config/slash-pro/token (chmod 600)에 저장되고 화면에는 나오지 않습니다.
 # 옵션: --label, --scopes a,b,..., --days 30|90|365, --force(기존 파일 덮어쓰기). 종료 코드 0 저장·1 거절·2 오류·3 만료
-uvx slash-pro-mcp==0.2.0 login
+uvx slash-pro-mcp==0.2.1 login
 
 # 대안(직접): 웹 앱에서 발급한 토큰을 직접 저장
 # 토큰을 화면에 보이지 않게 입력받아 셸 기록에 남기지 않고 본인만 읽을 수 있는 파일로 저장
 # 마지막 줄이 -rw------- 로 시작하면 정상
 (umask 077; mkdir -p ~/.config/slash-pro; printf '토큰 붙여넣고 Enter: '; read -rs T; echo; printf '%s' "$T" > ~/.config/slash-pro/token); ls -l ~/.config/slash-pro/token
 
-claude mcp add slash-pro -s user -- uvx slash-pro-mcp==0.2.0
+claude mcp add slash-pro -s user -- uvx slash-pro-mcp==0.2.1
 ```
 
 macOS·Linux에서는 토큰 파일을 그룹·다른 사용자가 읽을 수 있으면 서버가 시작을 거부합니다. Windows에는 이 권한 검사가 없으니 사용자 프로필 안에 두세요.
 
-설치 확인: `uvx slash-pro-mcp==0.2.0 --help`. 예시는 버전을 고정합니다(`slash-pro-mcp==0.2.0`). 새 버전은 [변경 기록](https://github.com/sigcrew/slash-pro-mcp/blob/main/CHANGELOG.md)을 확인한 뒤 직접 올리세요.
+설치 확인: `uvx slash-pro-mcp==0.2.1 --help`. 예시는 버전을 고정합니다(`slash-pro-mcp==0.2.1`). 새 버전은 [변경 기록](https://github.com/sigcrew/slash-pro-mcp/blob/main/CHANGELOG.md)을 확인한 뒤 직접 올리세요.
 
 Codex는 서버 시작을 기본 10초만 기다리므로 첫 실행(패키지 내려받기)을 위해 `~/.codex/config.toml`에 `startup_timeout_sec = 30`을 넣으세요:
 
 ```toml
 [mcp_servers.slash-pro]
 command = "uvx"
-args = ["slash-pro-mcp==0.2.0"]
+args = ["slash-pro-mcp==0.2.1"]
 startup_timeout_sec = 30
 ```
 
@@ -59,7 +59,7 @@ startup_timeout_sec = 30
 
 ## 클라이언트별 설정
 
-Codex·Cursor·VS Code·Claude Desktop·Gemini CLI·Windsurf 설정 예시는 [README.md › Client setup](https://github.com/sigcrew/slash-pro-mcp/blob/main/README.md#client-setup)에 있습니다(모두 `uvx slash-pro-mcp==0.2.0`). VS Code는 최상위 키가 `servers`이고, `inputs`에 `"password": true`를 주면 토큰을 파일에 적지 않고 입력받아 안전하게 저장합니다.
+Codex·Cursor·VS Code·Claude Desktop·Gemini CLI·Windsurf 설정 예시는 [README.md › Client setup](https://github.com/sigcrew/slash-pro-mcp/blob/main/README.md#client-setup)에 있습니다(모두 `uvx slash-pro-mcp==0.2.1`). VS Code는 최상위 키가 `servers`이고, `inputs`에 `"password": true`를 주면 토큰을 파일에 적지 않고 입력받아 안전하게 저장합니다.
 
 ## 도구
 
