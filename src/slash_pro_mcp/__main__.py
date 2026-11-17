@@ -10,7 +10,7 @@ from uuid import UUID
 
 import httpx
 
-from . import __version__
+from . import __version__, login
 from .client import SlashApiError, SlashClient
 from .config import ConfigError, SlashConfig, load_config
 from .instructions import INSTRUCTIONS, load_instructions, scope_note
@@ -18,8 +18,11 @@ from .server import build_server
 
 USAGE = """\
 usage: slash-pro-mcp [--help | --version]
+       slash-pro-mcp login [--label TEXT] [--scopes a,b,...] [--days 30|90|365] [--force]
 
-Runs the SLASH MCP server over stdio. Configure it with environment variables:
+Runs the SLASH MCP server over stdio. `login` gets a token by browser approval and saves it
+to SLASH_PRO_TOKEN_FILE (default ~/.config/slash-pro/token); it needs a server with /device-codes.
+Configure it with environment variables:
   SLASH_PRO_WORKSPACE_ID  workspace UUID (optional; default: the token's workspace)
   SLASH_PRO_TOKEN         personal API token, or
   SLASH_PRO_TOKEN_FILE    path to a chmod 600 file holding it (default ~/.config/slash-pro/token)
@@ -119,6 +122,8 @@ def main() -> int:
     if args and args[0] in ("-V", "--version"):
         print(f"slash-pro-mcp {__version__}")
         return 0
+    if args and args[0] == "login":
+        return login.main(args[1:])
     if args:
         print(USAGE, end="", file=sys.stderr)
         return 2

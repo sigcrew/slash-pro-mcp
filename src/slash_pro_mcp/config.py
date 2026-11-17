@@ -167,14 +167,21 @@ def read_token_file(path: Path) -> str:
     return check_token(read_private_file(path, "token file", MAX_TOKEN_FILE_BYTES), f"file {path}")
 
 
+def load_api_url(env: dict[str, str] | os._Environ[str]) -> tuple[str, bool]:
+    """`(api root, is_custom_host)` from `SLASH_PRO_API_URL` / `SLASH_PRO_ALLOW_CUSTOM_API`."""
+    return check_api_url(
+        (env.get("SLASH_PRO_API_URL") or "").strip() or DEFAULT_API_URL,
+        allow_custom=env.get("SLASH_PRO_ALLOW_CUSTOM_API") or "",
+    )
+
+
 def load_config(environ: dict[str, str] | None = None) -> SlashConfig:
     env = os.environ if environ is None else environ
 
     def get(name: str) -> str:
         return (env.get(name) or "").strip()
 
-    allow_custom = env.get("SLASH_PRO_ALLOW_CUSTOM_API") or ""
-    api, custom = check_api_url(get("SLASH_PRO_API_URL") or DEFAULT_API_URL, allow_custom=allow_custom)
+    api, custom = load_api_url(env)
     workspace_raw = get("SLASH_PRO_WORKSPACE_ID")
     workspace_id = check_workspace_id(workspace_raw) if workspace_raw else None
 

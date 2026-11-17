@@ -41,6 +41,8 @@
   "PATCH /workspaces/{workspace_id}/tickets/{ticket_id}": "tickets:write",
   "PATCH /workspaces/{workspace_id}/tickets/{ticket_id}/checklist": "tickets:write",
   "PATCH /workspaces/{workspace_id}/tickets/{ticket_id}/notes/{note_id}": "tickets:write",
+  "POST /device-codes": "any",
+  "POST /device-codes/token": "any",
   "POST /workspaces/{workspace_id}/documents/doc-updates/{update_id}/accept": "document:write",
   "POST /workspaces/{workspace_id}/documents/doc-updates/{update_id}/refresh": "document:write",
   "POST /workspaces/{workspace_id}/documents/doc-updates/{update_id}/reject": "document:write",

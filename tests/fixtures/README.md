@@ -3,7 +3,7 @@
 `route_scopes.json` is a **subset** of the SLASH server's API-token scope table
 (`"METHOD /path/{param}"` → required token scope): only the routes this package's tools call.
 The fake API in `tests/helpers.py` fails a test when a tool requests a route that is missing
-here or has no scope. `"any"` marks a route any valid token may call, with no scope (`GET /api-tokens/me`).
+here or has no scope. `"any"` marks a route any valid token may call, with no scope (`GET /api-tokens/me`; also `POST /device-codes` and `/device-codes/token`, which need no token at all).
 
 Refresh it from the server's table whenever a tool starts calling a new route (add only that
 route), and drop routes no tool calls anymore.
