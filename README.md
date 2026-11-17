@@ -9,17 +9,17 @@ It is a thin local **stdio** client. Each tool makes one REST call (or a few) to
 ## Requirements
 
 - [uv](https://docs.astral.sh/uv/) (provides `uvx`), or Python 3.12+ with `pipx`
-- A SLASH workspace and a personal API token (`et_…`), issued in the web app's settings
+- A SLASH workspace. The API token (`et_…`) comes from `login` below, or from the web app's settings
 
 ## Quick start
 
 1. Sign in from the terminal. This prints a link and a code; approve it in the browser (needs a SLASH server with `/device-codes`) and the token is saved to `~/.config/slash-pro/token` (chmod 600, never printed):
 
    ```bash
-   uvx slash-pro-mcp==0.2.0 login
+   uvx slash-pro-mcp==0.2.1 login
    ```
 
-   Options: `--label TEXT`, `--scopes a,b,...` (default `tickets:write,document:write,meetings:read`), `--days 30|90|365`, `--force` (replace an existing token file). Exit codes: 0 saved, 1 denied, 2 error, 3 expired. A custom API host is not supported; give its token as `SLASH_PRO_TOKEN`.
+   Options: `--label TEXT`, `--scopes a,b,...` (default `tickets:read,tickets:write,document:read,document:write,meetings:read`), `--days 30|90|365`, `--force` (replace an existing token file). Exit codes: 0 saved, 1 denied, 2 error, 3 expired. A custom API host is not supported; give its token as `SLASH_PRO_TOKEN`.
 
    Alternative, by hand: save a token issued in the web app to a file only you can read. This prompts for the token without showing it or putting it in your shell history:
 
@@ -32,14 +32,18 @@ It is a thin local **stdio** client. Each tool makes one REST call (or a few) to
 2. Register the server with your agent (see [Client setup](#client-setup)). With Claude Code:
 
    ```bash
-   claude mcp add slash-pro -s user -- uvx slash-pro-mcp==0.2.0
+   claude mcp add slash-pro -s user -- uvx slash-pro-mcp==0.2.1
    ```
+
+   Already registered (`MCP server slash-pro already exists`)? Run `claude mcp remove slash-pro -s user` first.
 
 3. Ask your agent something like *"list my in-progress tickets"*.
 
-Check the install without an agent: `uvx slash-pro-mcp==0.2.0 --help`.
+Check the install without an agent: `uvx slash-pro-mcp==0.2.1 --help`.
 
-The snippets pin the version (`slash-pro-mcp==0.2.0`) so a new release never runs without you choosing it. Bump the pin deliberately after reading the [changelog](https://github.com/sigcrew/slash-pro-mcp/blob/main/CHANGELOG.md).
+The snippets pin the version (`slash-pro-mcp==0.2.1`) so a new release never runs without you choosing it. Bump the pin deliberately after reading the [changelog](https://github.com/sigcrew/slash-pro-mcp/blob/main/CHANGELOG.md).
+
+Upgrading from 0.2.0: tokens from its `login` defaults lack `tickets:read` and can't read tickets. Run `uvx slash-pro-mcp==0.2.1 login --force` to replace yours.
 
 ## Configuration
 
@@ -64,12 +68,12 @@ Prefer `SLASH_PRO_TOKEN_FILE` (or the default file) over `SLASH_PRO_TOKEN`. That
 
 ## Client setup
 
-Every client runs the same command, `uvx slash-pro-mcp==0.2.0`. Some GUI apps don't inherit your shell's `PATH`. If yours can't find `uvx`, use its absolute path (run `which uvx` to find it).
+Every client runs the same command, `uvx slash-pro-mcp==0.2.1`. Some GUI apps don't inherit your shell's `PATH`. If yours can't find `uvx`, use its absolute path (run `which uvx` to find it).
 
 ### Claude Code
 
 ```bash
-claude mcp add slash-pro -s user -- uvx slash-pro-mcp==0.2.0
+claude mcp add slash-pro -s user -- uvx slash-pro-mcp==0.2.1
 claude mcp list
 ```
 
@@ -78,7 +82,7 @@ claude mcp list
 ```toml
 [mcp_servers.slash-pro]
 command = "uvx"
-args = ["slash-pro-mcp==0.2.0"]
+args = ["slash-pro-mcp==0.2.1"]
 # The first run downloads the package; give it more than Codex's 10 s default.
 startup_timeout_sec = 30
 # Forward the token from your shell instead of writing it here (optional):
@@ -88,7 +92,7 @@ startup_timeout_sec = 30
 SLASH_PRO_AGENT = "Codex"
 ```
 
-The CLI equivalent is `codex mcp add slash-pro -- uvx slash-pro-mcp==0.2.0` (then add `startup_timeout_sec` to the generated entry).
+The CLI equivalent is `codex mcp add slash-pro -- uvx slash-pro-mcp==0.2.1` (then add `startup_timeout_sec` to the generated entry).
 
 ### Cursor — `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global)
 
@@ -98,7 +102,7 @@ The CLI equivalent is `codex mcp add slash-pro -- uvx slash-pro-mcp==0.2.0` (the
     "slash-pro": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["slash-pro-mcp==0.2.0"],
+      "args": ["slash-pro-mcp==0.2.1"],
       "env": {
         "SLASH_PRO_AGENT": "Cursor"
       }
@@ -127,7 +131,7 @@ VS Code uses a top-level **`servers`** key, not `mcpServers`. An `inputs` entry 
     "slash-pro": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["slash-pro-mcp==0.2.0"],
+      "args": ["slash-pro-mcp==0.2.1"],
       "env": {
         "SLASH_PRO_TOKEN": "${input:slash-pro-token}",
         "SLASH_PRO_AGENT": "Copilot"
@@ -146,7 +150,7 @@ On macOS the file is `~/Library/Application Support/Claude/claude_desktop_config
   "mcpServers": {
     "slash-pro": {
       "command": "/absolute/path/to/uvx",
-      "args": ["slash-pro-mcp==0.2.0"],
+      "args": ["slash-pro-mcp==0.2.1"],
       "env": {
         "SLASH_PRO_AGENT": "Claude Desktop"
       }
@@ -162,7 +166,7 @@ On macOS the file is `~/Library/Application Support/Claude/claude_desktop_config
   "mcpServers": {
     "slash-pro": {
       "command": "uvx",
-      "args": ["slash-pro-mcp==0.2.0"],
+      "args": ["slash-pro-mcp==0.2.1"],
       "env": {
         "SLASH_PRO_AGENT": "Gemini CLI"
       }
@@ -171,7 +175,7 @@ On macOS the file is `~/Library/Application Support/Claude/claude_desktop_config
 }
 ```
 
-Gemini CLI expands `$VAR` / `${VAR}` in `env`, so `"SLASH_PRO_TOKEN": "$SLASH_PRO_TOKEN"` also works. The CLI equivalent is `gemini mcp add slash-pro uvx slash-pro-mcp==0.2.0`.
+Gemini CLI expands `$VAR` / `${VAR}` in `env`, so `"SLASH_PRO_TOKEN": "$SLASH_PRO_TOKEN"` also works. The CLI equivalent is `gemini mcp add slash-pro uvx slash-pro-mcp==0.2.1`.
 
 ### Windsurf — `~/.codeium/windsurf/mcp_config.json`
 
@@ -180,7 +184,7 @@ Gemini CLI expands `$VAR` / `${VAR}` in `env`, so `"SLASH_PRO_TOKEN": "$SLASH_PR
   "mcpServers": {
     "slash-pro": {
       "command": "uvx",
-      "args": ["slash-pro-mcp==0.2.0"],
+      "args": ["slash-pro-mcp==0.2.1"],
       "env": {
         "SLASH_PRO_AGENT": "Windsurf"
       }
@@ -191,7 +195,7 @@ Gemini CLI expands `$VAR` / `${VAR}` in `env`, so `"SLASH_PRO_TOKEN": "$SLASH_PR
 
 ### Any other stdio client
 
-Run `uvx slash-pro-mcp==0.2.0` (or `python -m slash_pro_mcp` inside an environment where the package is installed) with the environment variables above. The server speaks MCP over stdin/stdout and logs only to stderr.
+Run `uvx slash-pro-mcp==0.2.1` (or `python -m slash_pro_mcp` inside an environment where the package is installed) with the environment variables above. The server speaks MCP over stdin/stdout and logs only to stderr.
 
 ## Tools
 
@@ -248,7 +252,8 @@ Some actions are **human-only on purpose**, and no tools exist for them: re-pare
 
 - **Your token is the boundary.** The server checks every call against the token's scopes and the owner's workspace membership. Issue a token with only the scopes your agent needs:
   - read-only: `tickets:read`, `document:read`, `meetings:read`
-  - typical agent: add `tickets:write` and `document:write`
+  - typical agent: add `tickets:write` and `document:write` (the `login` default is both sets)
+  - a write scope does **not** include its read scope: a `tickets:write`-only token gets 403 on every ticket read
   - `projects:write` lets the token rename or re-describe **every** project in the workspace. Grant it only when needed.
   - `meetings:write` and `recordings:write` can trigger AI and transcription cost. This package doesn't need them for most tools.
 

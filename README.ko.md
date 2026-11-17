@@ -9,34 +9,38 @@
 ## 준비
 
 - [uv](https://docs.astral.sh/uv/)(`uvx` 포함) 또는 Python 3.12+와 `pipx`
-- SLASH 워크스페이스와 개인 API 토큰(`et_…`) — 웹 앱 설정에서 발급
+- SLASH 워크스페이스. API 토큰(`et_…`)은 아래 `login`으로 받거나 웹 앱 설정에서 발급
 
 ## 빠른 시작
 
 ```bash
 # 가장 간단한 방법: 링크와 코드가 나오면 브라우저에서 승인 (서버에 /device-codes 필요).
 # 토큰이 ~/.config/slash-pro/token (chmod 600)에 저장되고 화면에는 나오지 않습니다.
-# 옵션: --label, --scopes a,b,..., --days 30|90|365, --force(기존 파일 덮어쓰기). 종료 코드 0 저장·1 거절·2 오류·3 만료
-uvx slash-pro-mcp==0.2.0 login
+# 옵션: --label, --scopes a,b,...(기본 tickets:read,tickets:write,document:read,document:write,meetings:read), --days 30|90|365, --force(기존 파일 덮어쓰기)
+# 종료 코드 0 저장·1 거절·2 오류·3 만료
+uvx slash-pro-mcp==0.2.1 login
 
 # 대안(직접): 웹 앱에서 발급한 토큰을 직접 저장
 # 토큰을 화면에 보이지 않게 입력받아 셸 기록에 남기지 않고 본인만 읽을 수 있는 파일로 저장
 # 마지막 줄이 -rw------- 로 시작하면 정상
 (umask 077; mkdir -p ~/.config/slash-pro; printf '토큰 붙여넣고 Enter: '; read -rs T; echo; printf '%s' "$T" > ~/.config/slash-pro/token); ls -l ~/.config/slash-pro/token
 
-claude mcp add slash-pro -s user -- uvx slash-pro-mcp==0.2.0
+# 이미 등록돼 있으면(MCP server slash-pro already exists) 먼저 claude mcp remove slash-pro -s user
+claude mcp add slash-pro -s user -- uvx slash-pro-mcp==0.2.1
 ```
+
+0.2.0에서 올리는 경우: 0.2.0 `login` 기본값으로 받은 토큰에는 `tickets:read`가 없어 티켓을 읽지 못합니다. `uvx slash-pro-mcp==0.2.1 login --force`로 다시 받으세요.
 
 macOS·Linux에서는 토큰 파일을 그룹·다른 사용자가 읽을 수 있으면 서버가 시작을 거부합니다. Windows에는 이 권한 검사가 없으니 사용자 프로필 안에 두세요.
 
-설치 확인: `uvx slash-pro-mcp==0.2.0 --help`. 예시는 버전을 고정합니다(`slash-pro-mcp==0.2.0`). 새 버전은 [변경 기록](https://github.com/sigcrew/slash-pro-mcp/blob/main/CHANGELOG.md)을 확인한 뒤 직접 올리세요.
+설치 확인: `uvx slash-pro-mcp==0.2.1 --help`. 예시는 버전을 고정합니다(`slash-pro-mcp==0.2.1`). 새 버전은 [변경 기록](https://github.com/sigcrew/slash-pro-mcp/blob/main/CHANGELOG.md)을 확인한 뒤 직접 올리세요.
 
 Codex는 서버 시작을 기본 10초만 기다리므로 첫 실행(패키지 내려받기)을 위해 `~/.codex/config.toml`에 `startup_timeout_sec = 30`을 넣으세요:
 
 ```toml
 [mcp_servers.slash-pro]
 command = "uvx"
-args = ["slash-pro-mcp==0.2.0"]
+args = ["slash-pro-mcp==0.2.1"]
 startup_timeout_sec = 30
 ```
 
@@ -59,7 +63,7 @@ startup_timeout_sec = 30
 
 ## 클라이언트별 설정
 
-Codex·Cursor·VS Code·Claude Desktop·Gemini CLI·Windsurf 설정 예시는 [README.md › Client setup](https://github.com/sigcrew/slash-pro-mcp/blob/main/README.md#client-setup)에 있습니다(모두 `uvx slash-pro-mcp==0.2.0`). VS Code는 최상위 키가 `servers`이고, `inputs`에 `"password": true`를 주면 토큰을 파일에 적지 않고 입력받아 안전하게 저장합니다.
+Codex·Cursor·VS Code·Claude Desktop·Gemini CLI·Windsurf 설정 예시는 [README.md › Client setup](https://github.com/sigcrew/slash-pro-mcp/blob/main/README.md#client-setup)에 있습니다(모두 `uvx slash-pro-mcp==0.2.1`). VS Code는 최상위 키가 `servers`이고, `inputs`에 `"password": true`를 주면 토큰을 파일에 적지 않고 입력받아 안전하게 저장합니다.
 
 ## 도구
 
@@ -78,7 +82,7 @@ Codex·Cursor·VS Code·Claude Desktop·Gemini CLI·Windsurf 설정 예시는 [R
 
 ## 보안
 
-- **권한 경계는 토큰입니다.** 필요한 스코프만 골라 발급하세요. 읽기만 할 때는 `tickets:read`·`document:read`·`meetings:read`면 되고, 쓰기까지 하는 일반 에이전트라면 `tickets:write`·`document:write`를 더합니다. `projects:write`를 주면 워크스페이스의 모든 프로젝트 이름과 설명을 바꿀 수 있습니다. 토큰은 에이전트마다 하나씩 따로 발급하고 공유하지 마세요.
+- **권한 경계는 토큰입니다.** 필요한 스코프만 골라 발급하세요. 읽기만 할 때는 `tickets:read`·`document:read`·`meetings:read`면 되고, 쓰기까지 하는 일반 에이전트라면 `tickets:write`·`document:write`를 더합니다(`login` 기본값이 이 조합). 쓰기 스코프는 읽기를 포함하지 않습니다. `tickets:write`만 있는 토큰은 티켓 읽기가 모두 403입니다. `projects:write`를 주면 워크스페이스의 모든 프로젝트 이름과 설명을 바꿀 수 있습니다. 토큰은 에이전트마다 하나씩 따로 발급하고 공유하지 마세요.
 - **토큰 취급**: 로그·`repr`·오류·도구 결과에 토큰을 넣지 않고, 응답에 토큰이 섞여 오면 가립니다. macOS·Linux에서는 권한이 열린 토큰 파일을 거부하고(Windows는 검사 없음), 공백·제어문자가 섞인 토큰은 어디서나 거부합니다.
 - **토큰이 갈 수 있는 곳**: API 호스트는 `echo-api.slash.pro`만 허용합니다. 루프백을 포함한 그 밖의 호스트는 `SLASH_PRO_ALLOW_CUSTOM_API=<그 호스트>`(개발·자체 호스팅 전용)가 필요하고, 토큰은 `SLASH_PRO_TOKEN` 값으로만 받으며 토큰 파일은 읽지 않습니다. 남는 위험: 커스텀 호스트를 지정한 프로젝트 설정이 셸에 export한 `SLASH_PRO_TOKEN`을 참조할 수는 있으니, 토큰은 export보다 토큰 파일로 두고 프로젝트 MCP 설정은 확인한 뒤 신뢰하세요. 설정 오류 메시지에는 `scheme://host`만 나옵니다.
 - **전송**: HTTPS만 허용하고 TLS 검증은 항상 켜 둡니다. 프록시·CA 환경변수(`HTTPS_PROXY`·`SSL_CERT_FILE` 등)는 **일부러 무시**합니다(`trust_env=False`). 리다이렉트는 따라가지 않고, 연결 10초·읽기 30초 타임아웃과 요청 전체 60초, 도구 호출 전체 120초 기한을 둡니다. 응답은 압축 없이 받고(압축 응답은 본문을 읽기 전에 거부) 10 MB로 제한합니다.

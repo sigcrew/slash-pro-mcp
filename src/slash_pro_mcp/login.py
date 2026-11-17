@@ -21,7 +21,8 @@ from . import __version__
 from .client import SlashApiError, SlashClient
 from .config import DEFAULT_TOKEN_FILE, ConfigError, SlashConfig, check_token, load_api_url, read_token_file
 
-DEFAULT_SCOPES = "tickets:write,document:write,meetings:read"
+# A write scope never implies its read scope on the server.
+DEFAULT_SCOPES = "tickets:read,tickets:write,document:read,document:write,meetings:read"
 SLOW_DOWN_SECONDS = 5
 _SCOPE = re.compile(r"[a-z_]+:[a-z_]+")
 

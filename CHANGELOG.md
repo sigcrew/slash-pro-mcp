@@ -3,6 +3,12 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.1] - 2026-11-17
+
+### Fixed
+- `login` now asks for `tickets:read` and `document:read` by default. A `tickets:write` token cannot read
+  tickets, so tokens from 0.2.0's defaults got 403 on every ticket read. Re-run `login --force` to replace one.
+
 ## [0.2.0] - 2026-11-17
 
 ### Added

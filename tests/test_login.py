@@ -135,3 +135,11 @@ def test_client_error_while_polling_stops(fake, tmp_path, sleeps):
     fake.on("POST", "/api/device-codes/token", json_response(400, {"detail": "bad"}))
     with pytest.raises(SlashApiError):
         run(fake, tmp_path / "token")
+
+
+def test_default_scopes_cover_the_core_tools():
+    # The server never lets a write scope stand in for a read scope (document:write aside).
+    from slash_pro_mcp.instructions import scope_note
+    from slash_pro_mcp.login import DEFAULT_SCOPES
+
+    assert scope_note(DEFAULT_SCOPES.split(","), frozenset({"tickets", "documents", "meetings"})) == ""
