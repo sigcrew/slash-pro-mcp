@@ -212,11 +212,12 @@ class SlashClient:
     ) -> None:
         self.config = config
         headers: dict[str, str | bytes] = {
-            "Authorization": f"Bearer {config.token}",
             "Accept": "application/json, text/markdown;q=0.9, */*;q=0.1",
             # No compression: the size cap then bounds what the server can make us inflate.
             "Accept-Encoding": "identity",
         }
+        if config.token:  # empty only for `login`, whose routes take no auth
+            headers["Authorization"] = f"Bearer {config.token}"
         if config.requested_by:
             # httpx header values must be latin-1; non-ASCII (e.g. 한글) is sent as UTF-8
             # bytes, matching what curl/the shell skill send.
@@ -267,7 +268,9 @@ class SlashClient:
                 content = await _read_capped(response)
         etag = response.headers.get("ETag")
         # Defense in depth: never hand our own token back to the model, even if a server sends it back.
-        text = content.decode(response.encoding or "utf-8", errors="replace").replace(self.config.token, "[REDACTED]")
+        text = content.decode(response.encoding or "utf-8", errors="replace")
+        if self.config.token:
+            text = text.replace(self.config.token, "[REDACTED]")
         if not 200 <= response.status_code < 300:
             # 3xx included: redirects are not followed, so a moved API is an error.
             raise parse_error(response.status_code, text, etag)
@@ -282,7 +285,7 @@ class SlashClient:
             text=text,
             etag=etag,
             warnings=[
-                w.replace(self.config.token, "[REDACTED]")
+                w.replace(self.config.token, "[REDACTED]") if self.config.token else w
                 for w in _header_warnings(response.headers.get("X-Echo-Warnings"))
             ],
         )

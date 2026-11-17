@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-11-17
+
+### Added
+- `slash-pro-mcp login`: prints a link and a code, you approve in the browser, and the token is saved to
+  `SLASH_PRO_TOKEN_FILE` (default `~/.config/slash-pro/token`, chmod 600; refuses to overwrite without
+  `--force`). Options `--label`, `--scopes`, `--days`. Needs a SLASH server with `/device-codes`.
+
 ## [0.1.1] - 2026-11-17
 
 ### Changed
