@@ -84,9 +84,19 @@ async def _run(
         while waited < limit:
             await _sleep(interval)
             waited += interval
-            reply = await client.request(
-                "POST", "/device-codes/token", workspace=False, json={"deviceCode": device_code}
-            )
+            try:
+                reply = await client.request(
+                    "POST", "/device-codes/token", workspace=False, json={"deviceCode": device_code}
+                )
+            except (httpx.TransportError, TimeoutError) as exc:
+                # A blip must not throw away an approval the human may be giving right now.
+                print(f"retrying ({type(exc).__name__})", file=sys.stderr)
+                continue
+            except SlashApiError as exc:
+                if exc.status != 429 and exc.status < 500:
+                    raise
+                print(f"retrying (HTTP {exc.status})", file=sys.stderr)
+                continue
             data = reply.data if isinstance(reply.data, dict) else {}
             status = data.get("status")
             if status == "pending":

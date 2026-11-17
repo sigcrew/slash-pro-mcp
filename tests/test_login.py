@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from slash_pro_mcp import login
+from slash_pro_mcp.client import SlashApiError
 from slash_pro_mcp.config import ConfigError, SlashConfig
 from tests.helpers import FakeSlash, json_response
 
@@ -117,3 +118,20 @@ def test_custom_host_refused(tmp_path, monkeypatch):
     monkeypatch.setenv("SLASH_PRO_ALLOW_CUSTOM_API", "api.test")
     monkeypatch.setenv("SLASH_PRO_TOKEN_FILE", str(tmp_path / "token"))
     assert login.main([]) == 2
+
+
+def test_transient_poll_errors_keep_waiting(fake, tmp_path, sleeps):
+    fake.on("POST", "/api/device-codes", json_response(200, START))
+    replies = iter(
+        [json_response(503, {"detail": "busy"}), json_response(429, {"detail": "slow"}), json_response(200, APPROVED)]
+    )
+    fake.on("POST", "/api/device-codes/token", lambda _r: next(replies))
+    assert run(fake, tmp_path / "token") == 0
+    assert (tmp_path / "token").read_text() == NEW_TOKEN
+
+
+def test_client_error_while_polling_stops(fake, tmp_path, sleeps):
+    fake.on("POST", "/api/device-codes", json_response(200, START))
+    fake.on("POST", "/api/device-codes/token", json_response(400, {"detail": "bad"}))
+    with pytest.raises(SlashApiError):
+        run(fake, tmp_path / "token")
