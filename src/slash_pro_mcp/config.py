@@ -3,7 +3,8 @@
 | Setting      | Variable                                                     |
 |--------------|--------------------------------------------------------------|
 | API root     | `SLASH_PRO_API_URL`, default `DEFAULT_API_URL`               |
-| Workspace id | `SLASH_PRO_WORKSPACE_ID`, required, a UUID                   |
+| Workspace id | `SLASH_PRO_WORKSPACE_ID`, optional UUID; default: the token's |
+|              | workspace (`GET /api-tokens/me` at startup)                  |
 | Token        | `SLASH_PRO_TOKEN`, else a token file: `SLASH_PRO_TOKEN_FILE`, |
 |              | else `~/.config/slash-pro/token`                             |
 | Agent label  | `SLASH_PRO_AGENT`                                            |
@@ -61,7 +62,8 @@ class ConfigError(RuntimeError):
 @dataclass(frozen=True)
 class SlashConfig:
     api: str
-    workspace_id: str
+    # None until startup (`__main__`) fills it from the token's workspace.
+    workspace_id: str | None
     token: str = field(repr=False)
     # Explicit override only; by default the server derives the requester from the token owner.
     requested_by: str | None = None
@@ -174,9 +176,7 @@ def load_config(environ: dict[str, str] | None = None) -> SlashConfig:
     allow_custom = env.get("SLASH_PRO_ALLOW_CUSTOM_API") or ""
     api, custom = check_api_url(get("SLASH_PRO_API_URL") or DEFAULT_API_URL, allow_custom=allow_custom)
     workspace_raw = get("SLASH_PRO_WORKSPACE_ID")
-    if not workspace_raw:
-        raise ConfigError("SLASH_PRO_WORKSPACE_ID is required (the workspace UUID from the web app URL)")
-    workspace_id = check_workspace_id(workspace_raw)
+    workspace_id = check_workspace_id(workspace_raw) if workspace_raw else None
 
     if custom:
         # Development / self-hosting only: a literal token, never any token file.

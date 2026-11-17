@@ -208,6 +208,7 @@ class SlashClient:
         *,
         transport: httpx.AsyncBaseTransport | None = None,
         timeout: httpx.Timeout = DEFAULT_TIMEOUT,
+        me: dict | None = None,
     ) -> None:
         self.config = config
         headers: dict[str, str | bytes] = {
@@ -234,7 +235,8 @@ class SlashClient:
         # may edit or delete.
         self.own_notes: dict[str, str] = {}
         self.own_evidence_ids: set[str] = set()
-        self._me: dict | None = None
+        # The token owner `{id, name}`; startup seeds it from `GET /api-tokens/me`.
+        self._me = me
 
     def remember_note(self, data: object, kind: str) -> None:
         if isinstance(data, dict) and data.get("id"):
@@ -257,6 +259,8 @@ class SlashClient:
     ) -> SlashResponse:
         """Send one request. `path` is relative to `/workspaces/{ws}` unless
         `workspace=False` (then relative to the API root)."""
+        if workspace and not self.config.workspace_id:
+            raise RuntimeError("workspace id not resolved")
         url = f"/workspaces/{self.config.workspace_id}{path}" if workspace else path
         async with asyncio.timeout(REQUEST_DEADLINE_SECONDS):
             async with self._http.stream(method, url, json=json, params=params, headers=headers or {}) as response:
@@ -370,7 +374,7 @@ class SlashClient:
         """A person (name, user id, or me/나/내 = the token owner) -> `{id, name}`, chosen from active members
         (`GET /assignees`).
 
-        me -> `GET /assignees/me`, cached per process. Same id wins; otherwise an exact name match (ignoring spaces and case); otherwise a name
+        me -> the startup token owner, else `GET /assignees/me`, cached per process. Same id wins; otherwise an exact name match (ignoring spaces and case); otherwise a name
         containing `value`, if exactly one. None or several -> `ValueError` listing candidates."""
         wanted = value.strip()
         if wanted.lower() in ME:

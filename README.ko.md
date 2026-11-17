@@ -10,7 +10,6 @@
 
 - [uv](https://docs.astral.sh/uv/)(`uvx` 포함) 또는 Python 3.12+와 `pipx`
 - SLASH 워크스페이스와 개인 API 토큰(`et_…`) — 웹 앱 설정에서 발급
-- 워크스페이스 id — 웹 앱 주소에 있는 UUID
 
 ## 빠른 시작
 
@@ -19,32 +18,27 @@
 # 마지막 줄이 -rw------- 로 시작하면 정상
 (umask 077; mkdir -p ~/.config/slash-pro; printf '토큰 붙여넣고 Enter: '; read -rs T; echo; printf '%s' "$T" > ~/.config/slash-pro/token); ls -l ~/.config/slash-pro/token
 
-claude mcp add slash-pro -s user \
-  -e SLASH_PRO_WORKSPACE_ID=<워크스페이스-uuid> \
-  -- uvx slash-pro-mcp==0.1.0
+claude mcp add slash-pro -s user -- uvx slash-pro-mcp==0.1.1
 ```
 
 macOS·Linux에서는 토큰 파일을 그룹·다른 사용자가 읽을 수 있으면 서버가 시작을 거부합니다. Windows에는 이 권한 검사가 없으니 사용자 프로필 안에 두세요.
 
-설치 확인: `uvx slash-pro-mcp==0.1.0 --help`. 예시는 버전을 고정합니다(`slash-pro-mcp==0.1.0`). 새 버전은 [변경 기록](https://github.com/sigcrew/slash-pro-mcp/blob/main/CHANGELOG.md)을 확인한 뒤 직접 올리세요.
+설치 확인: `uvx slash-pro-mcp==0.1.1 --help`. 예시는 버전을 고정합니다(`slash-pro-mcp==0.1.1`). 새 버전은 [변경 기록](https://github.com/sigcrew/slash-pro-mcp/blob/main/CHANGELOG.md)을 확인한 뒤 직접 올리세요.
 
 Codex는 서버 시작을 기본 10초만 기다리므로 첫 실행(패키지 내려받기)을 위해 `~/.codex/config.toml`에 `startup_timeout_sec = 30`을 넣으세요:
 
 ```toml
 [mcp_servers.slash-pro]
 command = "uvx"
-args = ["slash-pro-mcp==0.1.0"]
+args = ["slash-pro-mcp==0.1.1"]
 startup_timeout_sec = 30
-
-[mcp_servers.slash-pro.env]
-SLASH_PRO_WORKSPACE_ID = "<워크스페이스-uuid>"
 ```
 
 ## 설정
 
 | 변수 | 기본값 | 뜻 |
 |---|---|---|
-| `SLASH_PRO_WORKSPACE_ID` | (필수) | 워크스페이스 UUID |
+| `SLASH_PRO_WORKSPACE_ID` | 토큰의 워크스페이스 | 워크스페이스 UUID. 선택값: 시작할 때 토큰의 워크스페이스를 읽음(`GET /api-tokens/me`). 적으면 토큰과 같아야 함. 그 경로가 없는 이전 SLASH 서버에서는 필요 |
 | `SLASH_PRO_TOKEN` | — | 개인 API 토큰. 없으면 파일에서 읽음 |
 | `SLASH_PRO_TOKEN_FILE` | `~/.config/slash-pro/token` | 토큰 파일 (`chmod 600` 필수) |
 | `SLASH_PRO_API_URL` | `https://echo-api.slash.pro` | API 주소. 커스텀 호스트를 허용하지 않았다면 `https://echo-api.slash.pro`(경로는 자유)만 허용. 호스트는 소문자 ASCII |
@@ -59,7 +53,7 @@ SLASH_PRO_WORKSPACE_ID = "<워크스페이스-uuid>"
 
 ## 클라이언트별 설정
 
-Codex·Cursor·VS Code·Claude Desktop·Gemini CLI·Windsurf 설정 예시는 [README.md › Client setup](https://github.com/sigcrew/slash-pro-mcp/blob/main/README.md#client-setup)에 있습니다(모두 `uvx slash-pro-mcp==0.1.0`). VS Code는 최상위 키가 `servers`이고, `inputs`에 `"password": true`를 주면 토큰을 파일에 적지 않고 입력받아 안전하게 저장합니다.
+Codex·Cursor·VS Code·Claude Desktop·Gemini CLI·Windsurf 설정 예시는 [README.md › Client setup](https://github.com/sigcrew/slash-pro-mcp/blob/main/README.md#client-setup)에 있습니다(모두 `uvx slash-pro-mcp==0.1.1`). VS Code는 최상위 키가 `servers`이고, `inputs`에 `"password": true`를 주면 토큰을 파일에 적지 않고 입력받아 안전하게 저장합니다.
 
 ## 도구
 
