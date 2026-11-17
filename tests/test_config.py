@@ -63,9 +63,8 @@ def test_default_token_file(isolated_home: Path):
     assert load_config({"SLASH_PRO_WORKSPACE_ID": WS}).token == TOKEN
 
 
-def test_missing_workspace_or_token_raises(tmp_path: Path):
-    with pytest.raises(ConfigError, match="SLASH_PRO_WORKSPACE_ID is required"):
-        load_config({"SLASH_PRO_TOKEN": TOKEN})
+def test_missing_workspace_is_resolved_later_missing_token_raises(tmp_path: Path):
+    assert load_config({"SLASH_PRO_TOKEN": TOKEN}).workspace_id is None  # startup reads the token's
     with pytest.raises(ConfigError, match="token is required"):
         load_config({"SLASH_PRO_WORKSPACE_ID": WS})
     with pytest.raises(ConfigError, match="token file not found"):

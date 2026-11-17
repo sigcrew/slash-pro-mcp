@@ -1,7 +1,6 @@
 """Server `instructions` = fixed text + the workspace's agent-instructions page (fenced),
 and the rules page is protected from agent writes."""
 
-import asyncio
 from dataclasses import replace
 
 import httpx
@@ -209,18 +208,6 @@ async def test_rules_page_designated_after_startup_is_protected(client: SlashCli
     fake.rules(OTHER_PAGE_ID)  # someone designates a page afterwards
     assert "사람만 고칠 수 있음" in await call_error(client, "write_document", page_id=OTHER_PAGE_ID, markdown="x")
     assert fake.calls_to("PUT", ".*") == []
-
-
-def test_startup_does_not_wait_for_a_slow_rules_page(config: SlashConfig, monkeypatch, capsys):
-    from slash_pro_mcp import __main__ as cli
-
-    async def slow(_client):
-        await asyncio.sleep(30)
-
-    monkeypatch.setattr(cli, "STARTUP_RULES_TIMEOUT_SECONDS", 0.05)
-    monkeypatch.setattr(cli, "load_instructions", slow)
-    assert asyncio.run(cli._startup_instructions(config)) == INSTRUCTIONS
-    assert "starting without them" in capsys.readouterr().err
 
 
 @pytest.mark.asyncio

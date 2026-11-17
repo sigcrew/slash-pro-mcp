@@ -1,6 +1,6 @@
 [project]
 name = "slash-pro-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server for SLASH: read and write tickets, meetings and documents from AI coding agents"
 readme = "README.md"
 license = "MIT"

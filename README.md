@@ -10,7 +10,6 @@ It is a thin local **stdio** client. Each tool makes one REST call (or a few) to
 
 - [uv](https://docs.astral.sh/uv/) (provides `uvx`), or Python 3.12+ with `pipx`
 - A SLASH workspace and a personal API token (`et_…`), issued in the web app's settings
-- Your workspace id, which is the UUID in the web app URL
 
 ## Quick start
 
@@ -25,16 +24,14 @@ It is a thin local **stdio** client. Each tool makes one REST call (or a few) to
 2. Register the server with your agent (see [Client setup](#client-setup)). With Claude Code:
 
    ```bash
-   claude mcp add slash-pro -s user \
-     -e SLASH_PRO_WORKSPACE_ID=00000000-0000-0000-0000-000000000000 \
-     -- uvx slash-pro-mcp==0.1.0
+   claude mcp add slash-pro -s user -- uvx slash-pro-mcp==0.1.1
    ```
 
 3. Ask your agent something like *"list my in-progress tickets"*.
 
-Check the install without an agent: `uvx slash-pro-mcp==0.1.0 --help`.
+Check the install without an agent: `uvx slash-pro-mcp==0.1.1 --help`.
 
-The snippets pin the version (`slash-pro-mcp==0.1.0`) so a new release never runs without you choosing it. Bump the pin deliberately after reading the [changelog](https://github.com/sigcrew/slash-pro-mcp/blob/main/CHANGELOG.md).
+The snippets pin the version (`slash-pro-mcp==0.1.1`) so a new release never runs without you choosing it. Bump the pin deliberately after reading the [changelog](https://github.com/sigcrew/slash-pro-mcp/blob/main/CHANGELOG.md).
 
 ## Configuration
 
@@ -42,7 +39,7 @@ Set these environment variables in the agent's MCP config.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `SLASH_PRO_WORKSPACE_ID` | — (required) | Workspace UUID |
+| `SLASH_PRO_WORKSPACE_ID` | the token's workspace | Workspace UUID. Optional: the server reads the token's workspace at startup (`GET /api-tokens/me`). If set, it must match the token. Older SLASH servers without that route need it |
 | `SLASH_PRO_TOKEN` | — | Personal API token. If you leave it unset, the token is read from a file |
 | `SLASH_PRO_TOKEN_FILE` | `~/.config/slash-pro/token` | File holding the token. Must be `chmod 600` |
 | `SLASH_PRO_API_URL` | `https://echo-api.slash.pro` | API root. Must be `https://echo-api.slash.pro` (any path) unless a custom host is allowed. The host must be lowercase ASCII |
@@ -59,14 +56,12 @@ Prefer `SLASH_PRO_TOKEN_FILE` (or the default file) over `SLASH_PRO_TOKEN`. That
 
 ## Client setup
 
-Every client runs the same command, `uvx slash-pro-mcp==0.1.0`. Some GUI apps don't inherit your shell's `PATH`. If yours can't find `uvx`, use its absolute path (run `which uvx` to find it).
+Every client runs the same command, `uvx slash-pro-mcp==0.1.1`. Some GUI apps don't inherit your shell's `PATH`. If yours can't find `uvx`, use its absolute path (run `which uvx` to find it).
 
 ### Claude Code
 
 ```bash
-claude mcp add slash-pro -s user \
-  -e SLASH_PRO_WORKSPACE_ID=<workspace-uuid> \
-  -- uvx slash-pro-mcp==0.1.0
+claude mcp add slash-pro -s user -- uvx slash-pro-mcp==0.1.1
 claude mcp list
 ```
 
@@ -75,18 +70,17 @@ claude mcp list
 ```toml
 [mcp_servers.slash-pro]
 command = "uvx"
-args = ["slash-pro-mcp==0.1.0"]
+args = ["slash-pro-mcp==0.1.1"]
 # The first run downloads the package; give it more than Codex's 10 s default.
 startup_timeout_sec = 30
 # Forward the token from your shell instead of writing it here (optional):
 # env_vars = ["SLASH_PRO_TOKEN"]
 
 [mcp_servers.slash-pro.env]
-SLASH_PRO_WORKSPACE_ID = "<workspace-uuid>"
 SLASH_PRO_AGENT = "Codex"
 ```
 
-The CLI equivalent is `codex mcp add slash-pro --env SLASH_PRO_WORKSPACE_ID=<workspace-uuid> -- uvx slash-pro-mcp==0.1.0` (then add `startup_timeout_sec` to the generated entry).
+The CLI equivalent is `codex mcp add slash-pro -- uvx slash-pro-mcp==0.1.1` (then add `startup_timeout_sec` to the generated entry).
 
 ### Cursor — `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global)
 
@@ -96,9 +90,8 @@ The CLI equivalent is `codex mcp add slash-pro --env SLASH_PRO_WORKSPACE_ID=<wor
     "slash-pro": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["slash-pro-mcp==0.1.0"],
+      "args": ["slash-pro-mcp==0.1.1"],
       "env": {
-        "SLASH_PRO_WORKSPACE_ID": "<workspace-uuid>",
         "SLASH_PRO_AGENT": "Cursor"
       }
     }
@@ -126,9 +119,8 @@ VS Code uses a top-level **`servers`** key, not `mcpServers`. An `inputs` entry 
     "slash-pro": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["slash-pro-mcp==0.1.0"],
+      "args": ["slash-pro-mcp==0.1.1"],
       "env": {
-        "SLASH_PRO_WORKSPACE_ID": "<workspace-uuid>",
         "SLASH_PRO_TOKEN": "${input:slash-pro-token}",
         "SLASH_PRO_AGENT": "Copilot"
       }
@@ -146,9 +138,8 @@ On macOS the file is `~/Library/Application Support/Claude/claude_desktop_config
   "mcpServers": {
     "slash-pro": {
       "command": "/absolute/path/to/uvx",
-      "args": ["slash-pro-mcp==0.1.0"],
+      "args": ["slash-pro-mcp==0.1.1"],
       "env": {
-        "SLASH_PRO_WORKSPACE_ID": "<workspace-uuid>",
         "SLASH_PRO_AGENT": "Claude Desktop"
       }
     }
@@ -163,9 +154,8 @@ On macOS the file is `~/Library/Application Support/Claude/claude_desktop_config
   "mcpServers": {
     "slash-pro": {
       "command": "uvx",
-      "args": ["slash-pro-mcp==0.1.0"],
+      "args": ["slash-pro-mcp==0.1.1"],
       "env": {
-        "SLASH_PRO_WORKSPACE_ID": "<workspace-uuid>",
         "SLASH_PRO_AGENT": "Gemini CLI"
       }
     }
@@ -173,7 +163,7 @@ On macOS the file is `~/Library/Application Support/Claude/claude_desktop_config
 }
 ```
 
-Gemini CLI expands `$VAR` / `${VAR}` in `env`, so `"SLASH_PRO_TOKEN": "$SLASH_PRO_TOKEN"` also works. The CLI equivalent is `gemini mcp add -e SLASH_PRO_WORKSPACE_ID=<workspace-uuid> slash-pro uvx slash-pro-mcp==0.1.0`.
+Gemini CLI expands `$VAR` / `${VAR}` in `env`, so `"SLASH_PRO_TOKEN": "$SLASH_PRO_TOKEN"` also works. The CLI equivalent is `gemini mcp add slash-pro uvx slash-pro-mcp==0.1.1`.
 
 ### Windsurf — `~/.codeium/windsurf/mcp_config.json`
 
@@ -182,9 +172,8 @@ Gemini CLI expands `$VAR` / `${VAR}` in `env`, so `"SLASH_PRO_TOKEN": "$SLASH_PR
   "mcpServers": {
     "slash-pro": {
       "command": "uvx",
-      "args": ["slash-pro-mcp==0.1.0"],
+      "args": ["slash-pro-mcp==0.1.1"],
       "env": {
-        "SLASH_PRO_WORKSPACE_ID": "<workspace-uuid>",
         "SLASH_PRO_AGENT": "Windsurf"
       }
     }
@@ -194,7 +183,7 @@ Gemini CLI expands `$VAR` / `${VAR}` in `env`, so `"SLASH_PRO_TOKEN": "$SLASH_PR
 
 ### Any other stdio client
 
-Run `uvx slash-pro-mcp==0.1.0` (or `python -m slash_pro_mcp` inside an environment where the package is installed) with the environment variables above. The server speaks MCP over stdin/stdout and logs only to stderr.
+Run `uvx slash-pro-mcp==0.1.1` (or `python -m slash_pro_mcp` inside an environment where the package is installed) with the environment variables above. The server speaks MCP over stdin/stdout and logs only to stderr.
 
 ## Tools
 

@@ -3,6 +3,19 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-11-17
+
+### Changed
+- `SLASH_PRO_WORKSPACE_ID` is optional. At startup the server reads the token's workspace, owner and
+  scopes from `GET /api-tokens/me` (needs a SLASH server with that route; on an older server keep setting
+  the variable). If the variable is set it must match the token's workspace, or the server stops with a
+  clear message; an invalid, expired or revoked token (401) or an inactive membership (403) stops it too.
+- `me`/`나`/`내` uses the token owner from that reply, without a `GET /assignees/me` call.
+- The server instructions name the scopes the token lacks for the registered tool groups.
+
+### Fixed
+- `--help`: missing space on the `SLASH_PRO_TOOLS` line.
+
 ## [0.1.0] - 2026-11-10
 
 ### Changed

@@ -37,6 +37,39 @@ RULES_PREAMBLE = (
 )
 MAX_CHARS = 4000  # same cap the server applies; kept here so a longer reply cannot bloat us
 AGENT_INSTRUCTIONS_PATH = RULES_PATH
+# Main token scopes per `config.TOOL_GROUPS` group, for the missing-scope note.
+# ponytail: main scopes only (e.g. outcomes' add_ticket_to_outcome also needs tickets:write); derive
+# per tool from the server's scope table if a coarse note misleads.
+GROUP_SCOPES = {
+    "projects": ("projects:write",),
+    "tickets": ("tickets:read", "tickets:write"),
+    "ticket_extras": ("tickets:read", "tickets:write"),
+    "questions": ("tickets:read", "tickets:write"),
+    "meetings": ("meetings:read",),
+    "meeting_agenda": ("meetings:read", "meetings:write"),
+    "documents": ("document:read", "document:write"),
+    "doc_updates": ("document:read", "document:write"),
+    "prds": ("document:read", "document:write"),
+    "outcomes": ("document:read", "document:write"),
+    "search": ("document:read",),
+}
+
+
+def scope_note(scopes: object, groups: frozenset[str] | None = None) -> str:
+    """One line naming the scopes `scopes` (the token's) lacks for the registered `groups`
+    (None = all), with the groups that need each; "" when nothing is missing or unknown."""
+    if not isinstance(scopes, list):
+        return ""
+    missing: dict[str, list[str]] = {}
+    for group, needed in GROUP_SCOPES.items():
+        if groups is None or group in groups:
+            for scope in needed:
+                if scope not in scopes:
+                    missing.setdefault(scope, []).append(group)
+    if not missing:
+        return ""
+    listed = "; ".join(f"{scope} ({', '.join(names)})" for scope, names in missing.items())
+    return f"\n\nThis token lacks scopes: {listed}. Tools needing them return 403."
 
 
 def compose_instructions(rules: dict | None, base: str = INSTRUCTIONS) -> str:
@@ -70,8 +103,8 @@ async def fetch_agent_instructions(client: SlashClient) -> dict | None:
         return None
 
 
-async def load_instructions(client: SlashClient) -> str:
-    """Composed instructions; the fixed text alone when `workspace_rules` is off."""
+async def load_instructions(client: SlashClient, base: str = INSTRUCTIONS) -> str:
+    """Composed instructions; `base` alone when `workspace_rules` is off."""
     if not client.config.workspace_rules:
-        return INSTRUCTIONS
-    return compose_instructions(await fetch_agent_instructions(client))
+        return base
+    return compose_instructions(await fetch_agent_instructions(client), base)

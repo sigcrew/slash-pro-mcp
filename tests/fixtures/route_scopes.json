@@ -3,6 +3,7 @@
   "DELETE /workspaces/{workspace_id}/tickets/{ticket_id}/evidence/{evidence_id}": "tickets:write",
   "DELETE /workspaces/{workspace_id}/tickets/{ticket_id}/notes/{note_id}": "tickets:write",
   "DELETE /workspaces/{workspace_id}/tickets/{ticket_id}/relations/{relation_id}": "tickets:write",
+  "GET /api-tokens/me": "any",
   "GET /meetings/{resource_id}": "meetings:read",
   "GET /meetings/{resource_id}/summary": "meetings:read",
   "GET /workspaces/{workspace_id}/assignees": "tickets:read",
