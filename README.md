@@ -9,7 +9,7 @@ It is a thin local **stdio** client. Each tool makes one REST call (or a few) to
 ## Requirements
 
 - [uv](https://docs.astral.sh/uv/) (provides `uvx`), or Python 3.12+ with `pipx`
-- A SLASH workspace and a personal API token (`et_…`), issued in the web app's settings
+- A SLASH workspace. The API token (`et_…`) comes from `login` below, or from the web app's settings
 
 ## Quick start
 
@@ -35,11 +35,15 @@ It is a thin local **stdio** client. Each tool makes one REST call (or a few) to
    claude mcp add slash-pro -s user -- uvx slash-pro-mcp==0.2.1
    ```
 
+   Already registered (`MCP server slash-pro already exists`)? Run `claude mcp remove slash-pro -s user` first.
+
 3. Ask your agent something like *"list my in-progress tickets"*.
 
 Check the install without an agent: `uvx slash-pro-mcp==0.2.1 --help`.
 
 The snippets pin the version (`slash-pro-mcp==0.2.1`) so a new release never runs without you choosing it. Bump the pin deliberately after reading the [changelog](https://github.com/sigcrew/slash-pro-mcp/blob/main/CHANGELOG.md).
+
+Upgrading from 0.2.0: tokens from its `login` defaults lack `tickets:read` and can't read tickets. Run `uvx slash-pro-mcp==0.2.1 login --force` to replace yours.
 
 ## Configuration
 
@@ -248,7 +252,8 @@ Some actions are **human-only on purpose**, and no tools exist for them: re-pare
 
 - **Your token is the boundary.** The server checks every call against the token's scopes and the owner's workspace membership. Issue a token with only the scopes your agent needs:
   - read-only: `tickets:read`, `document:read`, `meetings:read`
-  - typical agent: add `tickets:write` and `document:write`
+  - typical agent: add `tickets:write` and `document:write` (the `login` default is both sets)
+  - a write scope does **not** include its read scope: a `tickets:write`-only token gets 403 on every ticket read
   - `projects:write` lets the token rename or re-describe **every** project in the workspace. Grant it only when needed.
   - `meetings:write` and `recordings:write` can trigger AI and transcription cost. This package doesn't need them for most tools.
 
