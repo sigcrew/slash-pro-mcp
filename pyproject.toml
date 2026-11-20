@@ -48,7 +48,7 @@ build-constraint-dependencies = ["hatchling==1.33.0"]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.2,<9",
+    "pytest>=8.2,<10",
     "pytest-asyncio>=1.1,<2",
     "ruff>=0.8,<1",
 ]
